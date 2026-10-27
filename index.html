@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="en" class="h-full">
+<html lang="en-GB" class="h-full">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>TrussLab 2D</title>
-<meta name="description" content="Browser based 2D finite element truss solver. Direct stiffness method running in a Web Worker, rendered with Three.js.">
+<title>TrussLab 2D | Free Browser Truss Solver</title>
+<meta name="description" content="Free 2D truss solver using the direct stiffness method. Draw nodes and members, apply loads and supports, and calculate member forces, reactions and displacement.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 fill=%27%23080f16%27/%3E%3Cpath d=%27M4 24h24L22 10 16 24 10 10 4 24M10 10h12%27 fill=%27none%27 stroke=%27%23a3d8e3%27 stroke-width=%272%27/%3E%3C/svg%3E">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
 <style id="compiled-styles">*,:after,:before{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }::backdrop{--tw-border-spacing-x:0;--tw-border-spacing-y:0;--tw-translate-x:0;--tw-translate-y:0;--tw-rotate:0;--tw-skew-x:0;--tw-skew-y:0;--tw-scale-x:1;--tw-scale-y:1;--tw-pan-x: ;--tw-pan-y: ;--tw-pinch-zoom: ;--tw-scroll-snap-strictness:proximity;--tw-gradient-from-position: ;--tw-gradient-via-position: ;--tw-gradient-to-position: ;--tw-ordinal: ;--tw-slashed-zero: ;--tw-numeric-figure: ;--tw-numeric-spacing: ;--tw-numeric-fraction: ;--tw-ring-inset: ;--tw-ring-offset-width:0px;--tw-ring-offset-color:#fff;--tw-ring-color:rgba(59,130,246,.5);--tw-ring-offset-shadow:0 0 #0000;--tw-ring-shadow:0 0 #0000;--tw-shadow:0 0 #0000;--tw-shadow-colored:0 0 #0000;--tw-blur: ;--tw-brightness: ;--tw-contrast: ;--tw-grayscale: ;--tw-hue-rotate: ;--tw-invert: ;--tw-saturate: ;--tw-sepia: ;--tw-drop-shadow: ;--tw-backdrop-blur: ;--tw-backdrop-brightness: ;--tw-backdrop-contrast: ;--tw-backdrop-grayscale: ;--tw-backdrop-hue-rotate: ;--tw-backdrop-invert: ;--tw-backdrop-opacity: ;--tw-backdrop-saturate: ;--tw-backdrop-sepia: ;--tw-contain-size: ;--tw-contain-layout: ;--tw-contain-paint: ;--tw-contain-style: }/*! tailwindcss v3.4.17 | MIT License | https://tailwindcss.com*/*,:after,:before{box-sizing:border-box;border:0 solid #e5e7eb}:after,:before{--tw-content:""}:host,html{line-height:1.5;-webkit-text-size-adjust:100%;-moz-tab-size:4;-o-tab-size:4;tab-size:4;font-family:ui-sans-serif,system-ui,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,Noto Color Emoji;font-feature-settings:normal;font-variation-settings:normal;-webkit-tap-highlight-color:transparent}body{margin:0;line-height:inherit}hr{height:0;color:inherit;border-top-width:1px}abbr:where([title]){-webkit-text-decoration:underline dotted;text-decoration:underline dotted}h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:inherit}a{color:inherit;text-decoration:inherit}b,strong{font-weight:bolder}code,kbd,pre,samp{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-feature-settings:normal;font-variation-settings:normal;font-size:1em}small{font-size:80%}sub,sup{font-size:75%;line-height:0;position:relative;vertical-align:baseline}sub{bottom:-.25em}sup{top:-.5em}table{text-indent:0;border-color:inherit;border-collapse:collapse}button,input,optgroup,select,textarea{font-family:inherit;font-feature-settings:inherit;font-variation-settings:inherit;font-size:100%;font-weight:inherit;line-height:inherit;letter-spacing:inherit;color:inherit;margin:0;padding:0}button,select{text-transform:none}button,input:where([type=button]),input:where([type=reset]),input:where([type=submit]){-webkit-appearance:button;background-color:transparent;background-image:none}:-moz-focusring{outline:auto}:-moz-ui-invalid{box-shadow:none}progress{vertical-align:baseline}::-webkit-inner-spin-button,::-webkit-outer-spin-button{height:auto}[type=search]{-webkit-appearance:textfield;outline-offset:-2px}::-webkit-search-decoration{-webkit-appearance:none}::-webkit-file-upload-button{-webkit-appearance:button;font:inherit}summary{display:list-item}blockquote,dd,dl,figure,h1,h2,h3,h4,h5,h6,hr,p,pre{margin:0}fieldset{margin:0}fieldset,legend{padding:0}menu,ol,ul{list-style:none;margin:0;padding:0}dialog{padding:0}textarea{resize:vertical}input::-moz-placeholder,textarea::-moz-placeholder{opacity:1;color:#9ca3af}input::placeholder,textarea::placeholder{opacity:1;color:#9ca3af}[role=button],button{cursor:pointer}:disabled{cursor:default}audio,canvas,embed,iframe,img,object,svg,video{display:block;vertical-align:middle}img,video{max-width:100%;height:auto}[hidden]:where(:not([hidden=until-found])){display:none}.container{width:100%}@media (min-width:640px){.container{max-width:640px}}@media (min-width:768px){.container{max-width:768px}}@media (min-width:1024px){.container{max-width:1024px}}@media (min-width:1280px){.container{max-width:1280px}}@media (min-width:1536px){.container{max-width:1536px}}.panel{border-radius:.75rem;border-width:1px;border-color:hsla(0,0%,100%,.05);background-color:rgba(15,23,42,.6);padding:1rem}.panel-title{margin-bottom:.75rem;display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.12em;--tw-text-opacity:1;color:rgb(100 116 139/var(--tw-text-opacity,1))}.tool{display:flex;width:100%;align-items:center;gap:.75rem;border-radius:.5rem;border-width:1px;border-color:transparent;padding:.5rem .75rem;font-size:.875rem;line-height:1.25rem;--tw-text-opacity:1;color:rgb(203 213 225/var(--tw-text-opacity,1));transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,-webkit-backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter,-webkit-backdrop-filter;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.tool:hover{background-color:hsla(0,0%,100%,.05);--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.tool.active{border-color:rgba(34,211,238,.3);background-color:rgba(6,182,212,.1);--tw-text-opacity:1;color:rgb(165 243 252/var(--tw-text-opacity,1))}.tool kbd{margin-left:auto;border-radius:.25rem;border-width:1px;border-color:hsla(0,0%,100%,.1);padding:.125rem .375rem;font-size:10px;color:rgb(100 116 139/var(--tw-text-opacity,1))}.inp,.tool kbd{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;--tw-text-opacity:1}.inp{width:100%;border-radius:.375rem;border-width:1px;border-color:hsla(0,0%,100%,.1);background-color:rgba(2,6,23,.7);padding:.375rem .625rem;font-size:.875rem;line-height:1.25rem;color:rgb(241 245 249/var(--tw-text-opacity,1));outline:2px solid transparent;outline-offset:2px;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,-webkit-backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter,-webkit-backdrop-filter;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.inp:focus{border-color:rgba(34,211,238,.6);--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow,0 0 #0000);--tw-ring-color:rgba(34,211,238,.15)}.fld{display:flex;flex-direction:column;gap:.25rem;font-size:11px;--tw-text-opacity:1;color:rgb(148 163 184/var(--tw-text-opacity,1))}.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;border-radius:.5rem;border-width:1px;border-color:hsla(0,0%,100%,.1);background-color:hsla(0,0%,100%,.05);padding:.375rem .75rem;font-size:.875rem;line-height:1.25rem;font-weight:500;--tw-text-opacity:1;color:rgb(226 232 240/var(--tw-text-opacity,1));transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,-webkit-backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter,-webkit-backdrop-filter;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.btn:hover{border-color:hsla(0,0%,100%,.2);background-color:hsla(0,0%,100%,.1)}.btn:disabled{pointer-events:none;opacity:.35}.btn-sm{border-radius:.375rem;padding:.25rem .5rem;font-size:.75rem;line-height:1rem}.btn-primary{--tw-border-opacity:1;border-color:rgb(34 211 238/var(--tw-border-opacity,1));--tw-bg-opacity:1;background-color:rgb(6 182 212/var(--tw-bg-opacity,1));font-weight:600;--tw-text-opacity:1;color:rgb(2 6 23/var(--tw-text-opacity,1));--tw-shadow:0 0 24px -6px rgba(34,211,238,.7);--tw-shadow-colored:0 0 24px -6px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.btn-primary:hover{--tw-bg-opacity:1;background-color:rgb(34 211 238/var(--tw-bg-opacity,1))}.seg{flex:1 1 0%;border-radius:.375rem;border-width:1px;border-color:hsla(0,0%,100%,.1);padding:.375rem .5rem;font-size:.75rem;line-height:1rem;--tw-text-opacity:1;color:rgb(203 213 225/var(--tw-text-opacity,1));transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,-webkit-backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter,-webkit-backdrop-filter;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.seg:hover{background-color:hsla(0,0%,100%,.05)}.seg.\!on,.seg.on{border-color:rgba(34,211,238,.4);background-color:rgba(6,182,212,.15);--tw-text-opacity:1;color:rgb(165 243 252/var(--tw-text-opacity,1))}.chip{display:inline-flex;align-items:center;gap:.375rem;border-radius:.375rem;border-width:1px;border-color:hsla(0,0%,100%,.1);background-color:hsla(0,0%,100%,.05);padding:.125rem .5rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-size:.75rem;line-height:1rem;--tw-text-opacity:1;color:rgb(203 213 225/var(--tw-text-opacity,1))}.stat{border-radius:.5rem;border-width:1px;border-color:hsla(0,0%,100%,.05);background-color:rgba(2,6,23,.6);padding:.625rem}.stat-k{font-size:10px;text-transform:uppercase;letter-spacing:.05em;--tw-text-opacity:1;color:rgb(100 116 139/var(--tw-text-opacity,1))}.stat-v{margin-top:.125rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace;font-size:.875rem;line-height:1.25rem;--tw-text-opacity:1;color:rgb(241 245 249/var(--tw-text-opacity,1))}.ovl{position:absolute;border-radius:.75rem;border-width:1px;border-color:hsla(0,0%,100%,.1);background-color:rgba(15,23,42,.8);--tw-shadow:0 25px 50px -12px rgba(0,0,0,.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color);box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow);--tw-backdrop-blur:blur(8px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.tbl th{position:sticky;top:0;--tw-bg-opacity:1;background-color:rgb(15 23 42/var(--tw-bg-opacity,1));padding:.375rem .5rem;text-align:left;font-weight:500;--tw-text-opacity:1;color:rgb(100 116 139/var(--tw-text-opacity,1))}.tbl td{border-top-width:1px;border-color:hsla(0,0%,100%,.05);padding:.25rem .5rem;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace}.tbl td,.toggle{--tw-text-opacity:1;color:rgb(203 213 225/var(--tw-text-opacity,1))}.toggle{display:inline-flex;cursor:pointer;-webkit-user-select:none;-moz-user-select:none;user-select:none;align-items:center;gap:.5rem;font-size:.75rem;line-height:1rem}.pointer-events-none{pointer-events:none}.pointer-events-auto{pointer-events:auto}.visible{visibility:visible}.\!fixed{position:fixed!important}.fixed{position:fixed}.absolute{position:absolute}.sticky{position:sticky}.inset-0{inset:0}.bottom-12{bottom:3rem}.bottom-3{bottom:.75rem}.left-1\/2{left:50%}.left-3{left:.75rem}.right-3{right:.75rem}.top-20{top:5rem}.top-3{top:.75rem}.z-10{z-index:10}.z-30{z-index:30}.col-span-2{grid-column:span 2/span 2}.mx-1{margin-left:.25rem;margin-right:.25rem}.mx-2{margin-left:.5rem;margin-right:.5rem}.mb-1\.5{margin-bottom:.375rem}.mb-2{margin-bottom:.5rem}.mb-3{margin-bottom:.75rem}.ml-1{margin-left:.25rem}.mr-1\.5{margin-right:.375rem}.mt-0\.5{margin-top:.125rem}.mt-1{margin-top:.25rem}.mt-1\.5{margin-top:.375rem}.mt-2{margin-top:.5rem}.mt-2\.5{margin-top:.625rem}.mt-3{margin-top:.75rem}.mt-4{margin-top:1rem}.block{display:block}.inline-block{display:inline-block}.flex{display:flex}.table{display:table}.grid{display:grid}.hidden{display:none}.h-0\.5{height:.125rem}.h-1\.5{height:.375rem}.h-10{height:2.5rem}.h-2{height:.5rem}.h-2\.5{height:.625rem}.h-3\.5{height:.875rem}.h-4{height:1rem}.h-5{height:1.25rem}.h-6{height:1.5rem}.h-8{height:2rem}.h-full{height:100%}.max-h-72{max-height:18rem}.\!w-24{width:6rem!important}.\!w-auto{width:auto!important}.w-1\.5{width:.375rem}.w-10{width:2.5rem}.w-16{width:4rem}.w-2{width:.5rem}.w-28{width:7rem}.w-3{width:.75rem}.w-3\.5{width:.875rem}.w-4{width:1rem}.w-5{width:1.25rem}.w-56{width:14rem}.w-8{width:2rem}.w-\[calc\(100\%-2rem\)\]{width:calc(100% - 2rem)}.w-\[calc\(100\%-5\.5rem\)\]{width:calc(100% - 5.5rem)}.w-full{width:100%}.w-px{width:1px}.min-w-0{min-width:0}.max-w-\[16rem\]{max-width:16rem}.max-w-\[calc\(100\%-1\.5rem\)\]{max-width:calc(100% - 1.5rem)}.max-w-md{max-width:28rem}.-translate-x-1\/2{--tw-translate-x:-50%}.-translate-x-1\/2,.transform{transform:translate(var(--tw-translate-x),var(--tw-translate-y)) rotate(var(--tw-rotate)) skewX(var(--tw-skew-x)) skewY(var(--tw-skew-y)) scaleX(var(--tw-scale-x)) scaleY(var(--tw-scale-y))}.cursor-pointer{cursor:pointer}.resize{resize:both}.grid-cols-2{grid-template-columns:repeat(2,minmax(0,1fr))}.grid-cols-3{grid-template-columns:repeat(3,minmax(0,1fr))}.grid-cols-6{grid-template-columns:repeat(6,minmax(0,1fr))}.flex-col{flex-direction:column}.flex-wrap{flex-wrap:wrap}.place-items-center{place-items:center}.items-center{align-items:center}.justify-between{justify-content:space-between}.gap-1{gap:.25rem}.gap-1\.5{gap:.375rem}.gap-2{gap:.5rem}.gap-3{gap:.75rem}.gap-x-4{-moz-column-gap:1rem;column-gap:1rem}.gap-y-2{row-gap:.5rem}.space-y-3>:not([hidden])~:not([hidden]){--tw-space-y-reverse:0;margin-top:calc(.75rem*(1 - var(--tw-space-y-reverse)));margin-bottom:calc(.75rem*var(--tw-space-y-reverse))}.overflow-auto{overflow:auto}.overflow-hidden{overflow:hidden}.rounded{border-radius:.25rem}.rounded-full{border-radius:9999px}.rounded-lg{border-radius:.5rem}.\!border-0{border-width:0!important}.border{border-width:1px}.\!border-emerald-400\/20{border-color:rgba(52,211,153,.2)!important}.border-amber-400\/30{border-color:rgba(251,191,36,.3)}.border-emerald-400\/20{border-color:rgba(52,211,153,.2)}.border-emerald-400\/30{border-color:rgba(52,211,153,.3)}.border-red-400\/30{border-color:hsla(0,91%,71%,.3)}.border-white\/10{border-color:hsla(0,0%,100%,.1)}.border-white\/5{border-color:hsla(0,0%,100%,.05)}.\!bg-transparent{background-color:transparent!important}.bg-cyan-400{--tw-bg-opacity:1;background-color:rgb(34 211 238/var(--tw-bg-opacity,1))}.bg-cyan-500\/10{background-color:rgba(6,182,212,.1)}.bg-emerald-500\/10{background-color:rgba(16,185,129,.1)}.bg-slate-200{--tw-bg-opacity:1;background-color:rgb(226 232 240/var(--tw-bg-opacity,1))}.bg-slate-300{--tw-bg-opacity:1;background-color:rgb(203 213 225/var(--tw-bg-opacity,1))}.bg-slate-900\/95{background-color:rgba(15,23,42,.95)}.bg-slate-950{--tw-bg-opacity:1;background-color:rgb(2 6 23/var(--tw-bg-opacity,1))}.bg-slate-950\/95{background-color:rgba(2,6,23,.95)}.bg-white\/10{background-color:hsla(0,0%,100%,.1)}.bg-white\/5{background-color:hsla(0,0%,100%,.05)}.bg-gradient-to-br{background-image:linear-gradient(to bottom right,var(--tw-gradient-stops))}.from-cyan-400{--tw-gradient-from:#22d3ee var(--tw-gradient-from-position);--tw-gradient-to:rgba(34,211,238,0) var(--tw-gradient-to-position);--tw-gradient-stops:var(--tw-gradient-from),var(--tw-gradient-to)}.to-blue-600{--tw-gradient-to:#2563eb var(--tw-gradient-to-position)}.p-1{padding:.25rem}.p-2\.5{padding:.625rem}.p-3{padding:.75rem}.\!px-0{padding-left:0!important;padding-right:0!important}.\!py-1{padding-top:.25rem!important;padding-bottom:.25rem!important}.\!py-1\.5{padding-top:.375rem!important;padding-bottom:.375rem!important}.px-1{padding-left:.25rem;padding-right:.25rem}.px-1\.5{padding-left:.375rem;padding-right:.375rem}.px-2\.5{padding-left:.625rem;padding-right:.625rem}.px-3{padding-left:.75rem;padding-right:.75rem}.px-3\.5{padding-left:.875rem;padding-right:.875rem}.py-0\.5{padding-top:.125rem;padding-bottom:.125rem}.py-2{padding-top:.5rem;padding-bottom:.5rem}.py-2\.5{padding-top:.625rem;padding-bottom:.625rem}.py-6{padding-top:1.5rem;padding-bottom:1.5rem}.pb-2{padding-bottom:.5rem}.text-center{text-align:center}.\!text-right{text-align:right!important}.text-right{text-align:right}.align-middle{vertical-align:middle}.font-mono{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,Liberation Mono,Courier New,monospace}.font-sans{font-family:ui-sans-serif,system-ui,sans-serif,Apple Color Emoji,Segoe UI Emoji,Segoe UI Symbol,Noto Color Emoji}.\!text-xs{font-size:.75rem!important;line-height:1rem!important}.text-\[10\.5px\]{font-size:10.5px}.text-\[10px\]{font-size:10px}.text-\[11px\]{font-size:11px}.text-base{font-size:1rem;line-height:1.5rem}.text-sm{font-size:.875rem;line-height:1.25rem}.text-xs{font-size:.75rem;line-height:1rem}.font-medium{font-weight:500}.font-normal{font-weight:400}.font-semibold{font-weight:600}.uppercase{text-transform:uppercase}.normal-case{text-transform:none}.leading-none{line-height:1}.leading-relaxed{line-height:1.625}.leading-snug{line-height:1.375}.tracking-\[0\.12em\]{letter-spacing:.12em}.tracking-normal{letter-spacing:0}.tracking-tight{letter-spacing:-.025em}.tracking-wider{letter-spacing:.05em}.\!text-amber-300{--tw-text-opacity:1!important;color:rgb(252 211 77/var(--tw-text-opacity,1))!important}.\!text-emerald-300{--tw-text-opacity:1!important;color:rgb(110 231 183/var(--tw-text-opacity,1))!important}.\!text-red-300{--tw-text-opacity:1!important;color:rgb(252 165 165/var(--tw-text-opacity,1))!important}.text-amber-200{--tw-text-opacity:1;color:rgb(253 230 138/var(--tw-text-opacity,1))}.text-amber-300{--tw-text-opacity:1;color:rgb(252 211 77/var(--tw-text-opacity,1))}.text-cyan-200{--tw-text-opacity:1;color:rgb(165 243 252/var(--tw-text-opacity,1))}.text-cyan-300{--tw-text-opacity:1;color:rgb(103 232 249/var(--tw-text-opacity,1))}.text-cyan-400{--tw-text-opacity:1;color:rgb(34 211 238/var(--tw-text-opacity,1))}.text-emerald-200{--tw-text-opacity:1;color:rgb(167 243 208/var(--tw-text-opacity,1))}.text-emerald-300{--tw-text-opacity:1;color:rgb(110 231 183/var(--tw-text-opacity,1))}.text-red-200{--tw-text-opacity:1;color:rgb(254 202 202/var(--tw-text-opacity,1))}.text-slate-200{--tw-text-opacity:1;color:rgb(226 232 240/var(--tw-text-opacity,1))}.text-slate-300{--tw-text-opacity:1;color:rgb(203 213 225/var(--tw-text-opacity,1))}.text-slate-400{--tw-text-opacity:1;color:rgb(148 163 184/var(--tw-text-opacity,1))}.text-slate-500{--tw-text-opacity:1;color:rgb(100 116 139/var(--tw-text-opacity,1))}.text-slate-600{--tw-text-opacity:1;color:rgb(71 85 105/var(--tw-text-opacity,1))}.text-slate-700{--tw-text-opacity:1;color:rgb(51 65 85/var(--tw-text-opacity,1))}.text-slate-950{--tw-text-opacity:1;color:rgb(2 6 23/var(--tw-text-opacity,1))}.text-white{--tw-text-opacity:1;color:rgb(255 255 255/var(--tw-text-opacity,1))}.antialiased{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}.shadow-2xl{--tw-shadow:0 25px 50px -12px rgba(0,0,0,.25);--tw-shadow-colored:0 25px 50px -12px var(--tw-shadow-color)}.shadow-2xl,.shadow-\[0_0_20px_-4px_rgba\(34\2c 211\2c 238\2c \.6\)\]{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-\[0_0_20px_-4px_rgba\(34\2c 211\2c 238\2c \.6\)\]{--tw-shadow:0 0 20px -4px rgba(34,211,238,.6);--tw-shadow-colored:0 0 20px -4px var(--tw-shadow-color)}.shadow-\[0_0_8px_\#22d3ee\]{--tw-shadow:0 0 8px #22d3ee;--tw-shadow-colored:0 0 8px var(--tw-shadow-color)}.shadow-\[0_0_8px_\#22d3ee\],.shadow-xl{box-shadow:var(--tw-ring-offset-shadow,0 0 #0000),var(--tw-ring-shadow,0 0 #0000),var(--tw-shadow)}.shadow-xl{--tw-shadow:0 20px 25px -5px rgba(0,0,0,.1),0 8px 10px -6px rgba(0,0,0,.1);--tw-shadow-colored:0 20px 25px -5px var(--tw-shadow-color),0 8px 10px -6px var(--tw-shadow-color)}.outline{outline-style:solid}.ring-1{--tw-ring-offset-shadow:var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color);--tw-ring-shadow:var(--tw-ring-inset) 0 0 0 calc(1px + var(--tw-ring-offset-width)) var(--tw-ring-color);box-shadow:var(--tw-ring-offset-shadow),var(--tw-ring-shadow),var(--tw-shadow,0 0 #0000)}.ring-cyan-400\/25{--tw-ring-color:rgba(34,211,238,.25)}.filter{filter:var(--tw-blur) var(--tw-brightness) var(--tw-contrast) var(--tw-grayscale) var(--tw-hue-rotate) var(--tw-invert) var(--tw-saturate) var(--tw-sepia) var(--tw-drop-shadow)}.backdrop-blur{--tw-backdrop-blur:blur(8px);-webkit-backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia);backdrop-filter:var(--tw-backdrop-blur) var(--tw-backdrop-brightness) var(--tw-backdrop-contrast) var(--tw-backdrop-grayscale) var(--tw-backdrop-hue-rotate) var(--tw-backdrop-invert) var(--tw-backdrop-opacity) var(--tw-backdrop-saturate) var(--tw-backdrop-sepia)}.transition{transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,-webkit-backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter;transition-property:color,background-color,border-color,text-decoration-color,fill,stroke,opacity,box-shadow,transform,filter,backdrop-filter,-webkit-backdrop-filter;transition-timing-function:cubic-bezier(.4,0,.2,1);transition-duration:.15s}.hover\:\!bg-red-500\/10:hover{background-color:rgba(239,68,68,.1)!important}.hover\:\!bg-white\/10:hover{background-color:hsla(0,0%,100%,.1)!important}.hover\:bg-white\/5:hover{background-color:hsla(0,0%,100%,.05)}.hover\:text-cyan-300:hover{--tw-text-opacity:1;color:rgb(103 232 249/var(--tw-text-opacity,1))}@media (min-width:640px){.sm\:bottom-3{bottom:.75rem}.sm\:block{display:block}.sm\:inline-flex{display:inline-flex}.sm\:w-auto{width:auto}.sm\:max-w-sm{max-width:24rem}}@media (min-width:768px){.md\:block{display:block}}@media (min-width:1024px){.lg\:inline{display:inline}.lg\:grid-cols-1{grid-template-columns:repeat(1,minmax(0,1fr))}}</style>
 <style>
@@ -53,11 +53,28 @@ html,body{height:auto;min-height:100%;overscroll-behavior:auto;text-size-adjust:
 .scene-actions{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 12px;border-top:1px solid var(--border);background:#101e29}.scene-view-controls{display:flex;gap:6px}.scene-view-controls .btn{min-width:44px;min-height:44px;background:#152631!important;border:1px solid #344c5a!important}.scene-status{font:10px/1.6 var(--mono);color:#8fa4b3;min-width:0}.scene-status #stCoord{display:none}.scene-status #stCount{display:block}.scene-status #stCount+.mx-2{display:none}.scene-actions .scene-status>.mx-2{display:none}
 @media(max-width:760px){.scene-actions{padding:8px}.scene-status{font-size:9px}.scene-status #stCount{display:none}}
 </style>
+<meta name="theme-color" content="#080f16">
+<link rel="canonical" href="https://saddassl.github.io/trusslab/">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<meta property="og:type" content="website">
+<meta property="og:locale" content="en_GB">
+<meta property="og:title" content="TrussLab 2D | Free Browser Truss Solver">
+<meta property="og:description" content="Free 2D truss solver using the direct stiffness method. Draw nodes and members, apply loads and supports, and calculate member forces, reactions and displacement.">
+<meta property="og:url" content="https://saddassl.github.io/trusslab/">
+<meta property="og:image" content="https://kaballamuru.com/assets/trusslab.png">
+<meta property="og:image:width" content="1280">
+<meta property="og:image:height" content="720">
+<meta property="og:image:alt" content="Solved Pratt bridge with member stress and support reactions in TrussLab 2D">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="TrussLab 2D | Free Browser Truss Solver">
+<meta name="twitter:description" content="Free 2D truss solver using the direct stiffness method. Draw nodes and members, apply loads and supports, and calculate member forces, reactions and displacement.">
+<meta name="twitter:image" content="https://kaballamuru.com/assets/trusslab.png">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"TrussLab 2D","url":"https://saddassl.github.io/trusslab/","description":"Free 2D truss solver using the direct stiffness method. Draw nodes and members, apply loads and supports, and calculate member forces, reactions and displacement.","applicationCategory":"EducationalApplication","operatingSystem":"Any","browserRequirements":"Requires JavaScript, WebGL and Web Workers","isAccessibleForFree":true,"author":{"@type":"Person","name":"Mahosha Sandaru Kaballamuru","url":"https://kaballamuru.com/"},"featureList":["Direct stiffness method","Member axial forces and stress","Support reactions","Animated displacement","JSON import and export"],"isBasedOn":{"@type":"SoftwareSourceCode","codeRepository":"https://github.com/SaddasSL/trusslab"}}</script>
 </head>
 
 <body class="truss-page bg-slate-950 text-slate-200 font-sans antialiased">
 <a class="skip-link" href="#workspace">Skip to workspace</a>
-<header class="site-masthead"><nav class="site-nav" aria-label="Main navigation"><a class="site-brand" href="https://kaballamuru.com/" aria-label="Portfolio home">MSK<span>.</span><small>AEROSPACE / SPACE</small></a><div class="site-links"><a href="https://kaballamuru.com/#work">Work</a><a href="https://kaballamuru.com/#labs" aria-current="page">Labs</a><a href="https://kaballamuru.com/#experience">Experience</a><a href="https://kaballamuru.com/#contact">Contact</a><a class="nav-cv" href="https://kaballamuru.com/cv.pdf" target="_blank" rel="noopener">CV ↗</a></div></nav></header>
+<header class="site-masthead"><nav class="site-nav" aria-label="Main navigation"><a class="site-brand" href="https://kaballamuru.com/" aria-label="MSK. Aerospace / Space, portfolio home">MSK<span>.</span><small>AEROSPACE / SPACE</small></a><div class="site-links"><a href="https://kaballamuru.com/#work">Work</a><a href="https://kaballamuru.com/#labs" aria-current="page">Labs</a><a href="https://kaballamuru.com/#experience">Experience</a><a href="https://kaballamuru.com/#contact">Contact</a><a class="nav-cv" href="https://kaballamuru.com/cv.pdf" target="_blank" rel="noopener">CV ↗</a></div></nav></header>
 <div class="lab-heading"><nav class="breadcrumbs" aria-label="Breadcrumb"><a href="https://kaballamuru.com/#labs">← Back to portfolio</a><span aria-hidden="true">/</span><span>Structures lab</span></nav><div class="intro-row"><div><p class="eyebrow">INTERACTIVE STRUCTURAL ANALYSIS</p><h1>TrussLab <span>2D</span></h1></div><p>Build a truss. Apply supports and loads. Inspect the forces, displacement and evidence behind the result.</p></div></div>
 <div class="app-shell" id="workspace" data-panel="tools">
 
@@ -229,7 +246,7 @@ html,body{height:auto;min-height:100%;overscroll-behavior:auto;text-size-adjust:
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div class="flex items-center gap-2">
             <span class="text-[11px] text-slate-400">Exaggeration</span>
-            <input id="exag" type="range" min="0" max="100" value="50" class="w-28">
+            <input id="exag" aria-label="Deformation exaggeration" type="range" min="0" max="100" value="50" class="w-28">
             <span id="exagVal" class="text-[11px] font-mono text-cyan-300 w-16">×1</span>
           </div>
           <label class="toggle"><input id="ghostChk" type="checkbox" checked> Undeformed</label>
@@ -254,6 +271,8 @@ html,body{height:auto;min-height:100%;overscroll-behavior:auto;text-size-adjust:
     </aside>
   </div>
 </div>
+<section class="lab-heading" aria-labelledby="guide-title"><h2 id="guide-title" class="panel-title">Using TrussLab 2D</h2><p>Choose an example or draw nodes and connect them with members. Set the material and cross section, add supports and loads, then select Solve. Inspect a member to see its axial force and stress, or export your model as JSON to continue later.</p><details><summary>What does the solver calculate?</summary><p>The direct stiffness method calculates joint displacement, axial member forces and support reactions for a two dimensional truss with pin joints. Red indicates tension and blue indicates compression. The displayed deformation is exaggerated for clarity.</p></details><details><summary>What are the model limits?</summary><p>Members are straight and carry axial force only. The model assumes linear elastic materials and small displacement. It does not calculate bending, buckling, plasticity or dynamic response. A mechanism is rejected instead of returning a displacement result.</p></details><details><summary>Does my model leave this browser?</summary><p>Model calculations run locally in a Web Worker. Import and export use JSON files on your device. No account is required.</p></details></section>
+<noscript><p class="lab-heading">Enable JavaScript to draw and solve a truss. The solver requires WebGL and Web Workers. You can also <a href="https://github.com/SaddasSL/trusslab">read the source</a> or <a href="https://kaballamuru.com/#labs">explore the other labs</a>.</p></noscript>
 <footer class="site-end"><div><a class="site-brand" href="https://kaballamuru.com/">MSK<span>.</span></a><p>© 2026 Mahosha Sandaru Kaballamuru<br><span>Aerospace quality · Aircraft design · Space exploration</span></p></div><nav aria-label="Footer navigation"><a href="https://kaballamuru.com/#labs">All labs</a><a href="https://kaballamuru.com/angle-of-attack-lab/">Angle of Attack Lab</a><a href="https://kaballamuru.com/hall-effect-thruster/">Thruster Lab</a><a href="https://github.com/SaddasSL/trusslab" target="_blank" rel="noopener">Source ↗</a></nav></footer>
 
 <!-- ======================================================================
@@ -454,7 +473,7 @@ function solveTruss(nodes, elements) {
      APPLICATION
      ====================================================================== -->
 <script>
-(function () {
+document.addEventListener('DOMContentLoaded', () => {
 'use strict';
 
 /* ------------------------------------------------------------------ *
@@ -517,6 +536,7 @@ const S = {
   exagMult: 1, autoScale: 1, animStart: 0, cursor: { x: 0, y: 0 }, cursorIn: false
 };
 let dirty = true, viewDirty = true, phase = 0, solveSeq = 0;
+let initialResult = true;
 let P = new Map(); // displayed (possibly deformed) node positions, id -> [x, y]
 
 const getNode = (id) => S.nodes.find((n) => n.id === id);
@@ -610,7 +630,8 @@ function processResults(r) {
     residual: [r.residual[0] / 1e3, r.residual[1] / 1e3],
     ndof: r.ndof, nfree: r.nfree, nRestrained: r.nRestrained, time: r.solveMs
   };
-  S.animStart = performance.now();
+  S.animStart = performance.now() - (initialResult ? 1100 : 0);
+  initialResult = false;
   renderResults();
   renderInspector();
   if (window.innerWidth < 1024) setPanel('results');
@@ -622,7 +643,11 @@ function processResults(r) {
  *  Three.js scene
  * ------------------------------------------------------------------ */
 const container = $('#viewport');
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+if (!window.THREE) { $('#workspace').innerHTML = '<p class="panel" role="alert">The drawing library could not load. Check your connection and <a href="">reload the page</a>.</p>'; return; }
+let renderer;
+try { renderer = new THREE.WebGLRenderer({ antialias: true }); } catch (error) {
+  $('#workspace').innerHTML = '<p class="panel" role="alert">WebGL is unavailable in this browser. Enable hardware acceleration or try another browser to use the truss workspace.</p>'; return;
+}
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 container.appendChild(renderer.domElement);
 const canvas = renderer.domElement;
@@ -635,8 +660,10 @@ const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
 camera.position.set(0, 0, 10);
 camera.zoom = 60;
 
+let sceneWidth = 1, sceneHeight = 1;
 function resize() {
   const w = Math.max(container.clientWidth, 1), h = Math.max(container.clientHeight, 1);
+  sceneWidth = w; sceneHeight = h;
   renderer.setSize(w, h, false);
   canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
   camera.left = -w / 2; camera.right = w / 2; camera.top = h / 2; camera.bottom = -h / 2;
@@ -654,8 +681,8 @@ function screenToWorld(cx, cy) {
 }
 function worldToScreen(x, y) {
   return [
-    (x - camera.position.x) * camera.zoom + container.clientWidth / 2,
-    container.clientHeight / 2 - (y - camera.position.y) * camera.zoom
+    (x - camera.position.x) * camera.zoom + sceneWidth / 2,
+    sceneHeight / 2 - (y - camera.position.y) * camera.zoom
   ];
 }
 
@@ -968,10 +995,9 @@ function addLabel(x, y, text, cls, dx = 0, dy = 0) {
   if (!el) { el = document.createElement('div'); labelLayer.appendChild(el); labelPool.push(el); }
   labelCount++;
   const [sx, sy] = worldToScreen(x, y);
-  el.className = 'lbl ' + cls;
+  if (el.className !== 'lbl ' + cls) el.className = 'lbl ' + cls;
   if (el.textContent !== text) el.textContent = text;
-  el.style.transform = `translate(${(sx + dx).toFixed(1)}px, ${(sy + dy).toFixed(1)}px) translate(-50%, -50%)`;
-  el.style.display = '';
+  if (el.style.display) el.style.display = '';
   el.dataset.anchorX = sx; el.dataset.anchorY = sy;
   el._labelX = sx + dx; el._labelY = sy + dy;
 }
@@ -1029,12 +1055,17 @@ function updateGlyphsAndLabels() {
 
 const labelSizes = new Map();
 function layoutLabels() {
-  const w = container.clientWidth, h = container.clientHeight, used = [];
+  const w = sceneWidth, h = sceneHeight, used = [];
   const priority = el => el.classList.contains('lbl-react') ? 0 : el.classList.contains('lbl-load') ? 1 : el.classList.contains('lbl-node') ? 3 : 2;
   const offsets = [[0,0],[0,-20],[0,20],[-24,0],[24,0],[-32,-22],[32,-22],[-32,22],[32,22],[0,-42],[0,42],[-48,-42],[48,-42],[-48,42],[48,42]];
   for(const radius of [60,80,100,120])for(let angle=0;angle<12;angle++)offsets.push([Math.cos(angle*Math.PI/6)*radius,Math.sin(angle*Math.PI/6)*radius]);
-  labelLeaders.replaceChildren();
-  for (const el of labelPool.slice(0,labelCount).sort((a,b)=>priority(a)-priority(b))) {
+  const active = labelPool.slice(0,labelCount).sort((a,b)=>priority(a)-priority(b));
+  for (const el of active) {
+    const key = el.className + el.textContent;
+    if (!labelSizes.has(key)) labelSizes.set(key, [el.offsetWidth, el.offsetHeight]);
+  }
+  const leaders = document.createDocumentFragment();
+  for (const el of active) {
     const key = el.className + el.textContent;
     let size = labelSizes.get(key);
     if (!size) { size = [el.offsetWidth, el.offsetHeight]; labelSizes.set(key,size); }
@@ -1047,17 +1078,23 @@ function layoutLabels() {
       if(Math.hypot(x-el._labelX,y-el._labelY)>20){
         const line=document.createElementNS('http://www.w3.org/2000/svg','line');
         line.setAttribute('x1',el.dataset.anchorX);line.setAttribute('y1',el.dataset.anchorY);line.setAttribute('x2',x);line.setAttribute('y2',y);
-        line.setAttribute('stroke',el.classList.contains('lbl-load')?'#fbbf24':el.classList.contains('lbl-react')?'#6ee7b7':'#a3d8e3');line.setAttribute('stroke-opacity','.35');line.setAttribute('stroke-width','.8');labelLeaders.appendChild(line);
+        line.setAttribute('stroke',el.classList.contains('lbl-load')?'#fbbf24':el.classList.contains('lbl-react')?'#6ee7b7':'#a3d8e3');line.setAttribute('stroke-opacity','.35');line.setAttribute('stroke-width','.8');leaders.appendChild(line);
       }
       placed = true; break;
     }
     if (!placed) el.style.display = 'none';
   }
+  labelLeaders.replaceChildren(leaders);
 }
 
 /* ---------------- positions with animated deformation ---------------- */
+const motionPreference = matchMedia('(prefers-reduced-motion: reduce)');
+motionPreference.addEventListener('change', () => { dirty = true; });
+document.addEventListener('visibilitychange', () => { dirty = true; });
+canvas.addEventListener('webglcontextrestored', () => { dirty = true; });
 function animPhase(now) {
   if (!S.results) return 0;
+  if (motionPreference.matches && !S.loop) return 1;
   const t = (now - S.animStart) / 1000;
   if (S.loop) return 0.5 - 0.5 * Math.cos(t * Math.PI);
   const k = Math.min(1, t / 1.1);
@@ -1076,6 +1113,7 @@ function computePositions() {
 /* ---------------- render loop ---------------- */
 function frame(now) {
   requestAnimationFrame(frame);
+  if (document.hidden) return;
   const newPhase = animPhase(now);
   if (newPhase !== phase) { phase = newPhase; dirty = true; }
   if (viewDirty) { updateGrid(); viewDirty = false; dirty = true; $('#stZoom').textContent = Math.round(camera.zoom) + ' px/m'; }
@@ -1087,9 +1125,9 @@ function frame(now) {
     updateRubber();
     updateGlyphsAndLabels();
     $('#btnFinish').hidden = S.mode !== 'element' || S.pending === null;
+    renderer.render(scene, camera);
     dirty = false;
   }
-  renderer.render(scene, camera);
 }
 
 /* ------------------------------------------------------------------ *
@@ -1825,8 +1863,8 @@ updateUndoButtons();
 renderResults();
 loadModel(PRESETS.pratt(), false);
 requestAnimationFrame(frame);
-setTimeout(solve, 350);
-})();
+setTimeout(solve, 0);
+});
 </script>
 </body>
 </html>
