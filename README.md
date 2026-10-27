@@ -2,7 +2,7 @@
 
 A browser based 2D finite element truss solver. Build a pin jointed truss, apply supports and loads, then solve for nodal displacements, member forces, axial stresses and support reactions. Everything runs client side in a single HTML file.
 
-**Live demo:** https://saddasl.github.io/trusslab/
+**Live demo:** https://saddassl.github.io/trusslab/
 
 ## Features
 
