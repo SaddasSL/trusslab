@@ -1,0 +1,1771 @@
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TrussLab 2D</title>
+<meta name="description" content="Browser based 2D finite element truss solver. Direct stiffness method running in a Web Worker, rendered with Three.js.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: {
+          sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+          mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
+        }
+      }
+    }
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<style type="text/tailwindcss">
+  @layer components {
+    .panel { @apply bg-slate-900/60 border border-white/5 rounded-xl p-4; }
+    .panel-title { @apply text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 mb-3 flex items-center justify-between; }
+    .tool { @apply flex items-center gap-3 w-full px-3 py-2 rounded-lg text-sm text-slate-300 border border-transparent transition hover:bg-white/5 hover:text-white; }
+    .tool.active { @apply bg-cyan-500/10 border-cyan-400/30 text-cyan-200; }
+    .tool kbd { @apply ml-auto text-[10px] font-mono text-slate-500 border border-white/10 rounded px-1.5 py-0.5; }
+    .inp { @apply w-full bg-slate-950/70 border border-white/10 rounded-md px-2.5 py-1.5 text-sm font-mono text-slate-100 outline-none transition focus:border-cyan-400/60 focus:ring-2 focus:ring-cyan-400/15; }
+    .fld { @apply flex flex-col gap-1 text-[11px] text-slate-400; }
+    .btn { @apply inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border border-white/10 bg-white/5 text-slate-200 transition hover:bg-white/10 hover:border-white/20 disabled:opacity-35 disabled:pointer-events-none; }
+    .btn-sm { @apply px-2 py-1 text-xs rounded-md; }
+    .btn-primary { @apply bg-cyan-500 text-slate-950 border-cyan-400 font-semibold hover:bg-cyan-400 shadow-[0_0_24px_-6px_rgba(34,211,238,0.7)]; }
+    .seg { @apply flex-1 px-2 py-1.5 text-xs rounded-md border border-white/10 text-slate-300 transition hover:bg-white/5; }
+    .seg.on { @apply bg-cyan-500/15 border-cyan-400/40 text-cyan-200; }
+    .chip { @apply inline-flex items-center gap-1.5 text-xs font-mono px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-slate-300; }
+    .stat { @apply bg-slate-950/60 border border-white/5 rounded-lg p-2.5; }
+    .stat-k { @apply text-[10px] uppercase tracking-wider text-slate-500; }
+    .stat-v { @apply font-mono text-sm text-slate-100 mt-0.5; }
+    .ovl { @apply absolute bg-slate-900/80 backdrop-blur border border-white/10 rounded-xl shadow-2xl; }
+    .tbl th { @apply text-left font-medium text-slate-500 px-2 py-1.5 sticky top-0 bg-slate-900; }
+    .tbl td { @apply px-2 py-1 font-mono text-slate-300 border-t border-white/5; }
+    .toggle { @apply inline-flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none; }
+  }
+</style>
+<style>
+  html, body { overscroll-behavior: none; }
+  #viewport canvas { display: block; touch-action: none; outline: none; }
+  .lbl { position: absolute; left: 0; top: 0; white-space: nowrap; pointer-events: none;
+         font: 500 10.5px 'JetBrains Mono', ui-monospace, monospace; padding: 1px 5px; border-radius: 4px; will-change: transform; }
+  .lbl-node  { color: #94a3b8; }
+  .lbl-load  { color: #fbbf24; background: rgba(2,6,23,.78); border: 1px solid rgba(251,191,36,.25); }
+  .lbl-react { color: #6ee7b7; background: rgba(2,6,23,.78); border: 1px solid rgba(110,231,183,.25); }
+  .lbl-t     { color: #fca5a5; background: rgba(2,6,23,.78); }
+  .lbl-c     { color: #93c5fd; background: rgba(2,6,23,.78); }
+  .lbl-z     { color: #86efac; background: rgba(2,6,23,.78); }
+  .ramp { background: linear-gradient(90deg, rgb(38,99,250) 0%, rgb(33,204,102) 50%, rgb(240,59,54) 100%); }
+  input[type=range] { accent-color: #22d3ee; }
+  input[type=checkbox] { accent-color: #22d3ee; }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-thumb { background: rgba(148,163,184,.18); border-radius: 8px; }
+  .spin { animation: spin .8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast-in { animation: tin .25s ease-out; }
+  @keyframes tin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .bg-dots { background-image: radial-gradient(rgba(148,163,184,.06) 1px, transparent 1px); background-size: 18px 18px; }
+</style>
+</head>
+
+<body class="h-full bg-slate-950 text-slate-200 font-sans antialiased">
+<div class="flex flex-col h-full">
+
+  <!-- ===================== HEADER ===================== -->
+  <header class="h-14 shrink-0 flex items-center justify-between gap-3 px-3 sm:px-5 border-b border-white/5 bg-slate-900/70 backdrop-blur z-20">
+    <div class="flex items-center gap-3 min-w-0">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-blue-600 grid place-items-center shadow-[0_0_20px_-4px_rgba(34,211,238,.6)]">
+        <svg viewBox="0 0 24 24" class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"><path d="M3 18h18M3 18l4.5-9L12 18l4.5-9L21 18M7.5 9h9"/></svg>
+      </div>
+      <div class="min-w-0">
+        <div class="font-semibold tracking-tight text-white leading-none">TrussLab <span class="text-cyan-400">2D</span></div>
+        <div class="text-[11px] text-slate-500 mt-1 hidden sm:block">Finite element truss solver</div>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-1.5 sm:gap-2">
+      <select id="presetSel" class="inp !w-auto !py-1.5 !text-xs hidden md:block" title="Load an example model">
+        <option value="">Examples…</option>
+        <option value="pratt">Pratt bridge, 12 m</option>
+        <option value="cantilever">Tapered cantilever</option>
+        <option value="triangle">Simple triangle</option>
+        <option value="braced">Braced frame (indeterminate)</option>
+      </select>
+      <button id="btnUndo" class="btn btn-sm" title="Undo (Ctrl+Z)"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+      <button id="btnRedo" class="btn btn-sm" title="Redo (Ctrl+Y)"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 14 5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+      <div class="w-px h-6 bg-white/10 mx-1 hidden sm:block"></div>
+      <button id="btnImport" class="btn btn-sm hidden sm:inline-flex" title="Import model (JSON)"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 21h16"/></svg><span class="hidden lg:inline">Import</span></button>
+      <button id="btnExport" class="btn btn-sm hidden sm:inline-flex" title="Export model (JSON)"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 0L8 7m4-4 4 4M4 21h16"/></svg><span class="hidden lg:inline">Export</span></button>
+      <button id="btnClear" class="btn btn-sm" title="Clear model"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M9 7V4h6v3m-8 0 1 13h8l1-13"/></svg><span class="hidden lg:inline">Clear</span></button>
+      <button id="btnSolve" class="btn btn-primary ml-1" title="Solve (Enter)">
+        <svg id="solveIcon" viewBox="0 0 24 24" class="w-4 h-4" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z"/></svg>
+        <svg id="solveSpin" viewBox="0 0 24 24" class="w-4 h-4 spin hidden" fill="none" stroke="currentColor" stroke-width="3"><path d="M12 3a9 9 0 1 0 9 9" stroke-linecap="round"/></svg>
+        <span>Solve</span>
+      </button>
+      <input id="fileInput" type="file" accept=".json,application/json" class="hidden">
+    </div>
+  </header>
+
+  <div class="flex-1 flex flex-col lg:flex-row min-h-0">
+
+    <!-- ===================== LEFT PANEL ===================== -->
+    <aside class="order-2 lg:order-none lg:w-72 shrink-0 border-t lg:border-t-0 lg:border-r border-white/5 bg-slate-950 lg:overflow-y-auto p-3 space-y-3">
+
+      <section class="panel">
+        <div class="panel-title">Tools</div>
+        <div class="grid grid-cols-2 lg:grid-cols-1 gap-1" id="toolList">
+          <button class="tool" data-mode="select"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="m5 3 14 8-6 2-3 6z"/></svg>Select / move<kbd>1</kbd></button>
+          <button class="tool" data-mode="node"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>Add node<kbd>2</kbd></button>
+          <button class="tool" data-mode="element"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="5" r="2.5"/><path d="M7 17 17 7"/></svg>Add member<kbd>3</kbd></button>
+          <button class="tool" data-mode="support"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 5 6 15h12zM4 19h16"/></svg>Apply support<kbd>4</kbd></button>
+          <button class="tool" data-mode="load"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v14m0 0-5-5m5 5 5-5M5 21h14"/></svg>Apply load<kbd>5</kbd></button>
+          <button class="tool" data-mode="delete"><svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>Delete<kbd>6</kbd></button>
+        </div>
+      </section>
+
+      <section class="panel" id="optSupport">
+        <div class="panel-title">Support type</div>
+        <div class="grid grid-cols-2 gap-1.5" id="supportSeg">
+          <button class="seg" data-sup="pin">Pin (X + Y)</button>
+          <button class="seg" data-sup="rollerY">Roller (Y)</button>
+          <button class="seg" data-sup="rollerX">Roller (X)</button>
+          <button class="seg" data-sup="none">Free</button>
+        </div>
+        <p class="text-[11px] text-slate-500 mt-2 leading-relaxed">Pin restrains both directions. A roller restrains only the axis shown and slides along the other.</p>
+      </section>
+
+      <section class="panel" id="optLoad">
+        <div class="panel-title">Nodal load</div>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="fld"><span>Magnitude (kN)</span><input id="loadMag" class="inp" type="number" step="1" min="0" value="10"></label>
+          <label class="fld"><span>Angle from +X (°)</span><input id="loadAng" class="inp" type="number" step="5" value="-90"></label>
+        </div>
+        <div class="grid grid-cols-6 gap-1 mt-2" id="dirBtns">
+          <button class="seg !px-0" data-ang="-90" title="Down">↓</button>
+          <button class="seg !px-0" data-ang="90" title="Up">↑</button>
+          <button class="seg !px-0" data-ang="0" title="Right">→</button>
+          <button class="seg !px-0" data-ang="180" title="Left">←</button>
+          <button class="seg !px-0" data-ang="-45" title="Down right">↘</button>
+          <button class="seg !px-0" data-ang="-135" title="Down left">↙</button>
+        </div>
+        <div class="mt-2 text-[11px] font-mono text-slate-400" id="loadComp">Fx 0.00 kN · Fy −10.00 kN</div>
+        <p class="text-[11px] text-slate-500 mt-1">Click a node to apply. Magnitude 0 removes the load.</p>
+      </section>
+
+      <section class="panel" id="optSection">
+        <div class="panel-title">Member section <span class="normal-case tracking-normal text-slate-600 font-normal">new members</span></div>
+        <label class="fld mb-2"><span>Material</span>
+          <select id="matSel" class="inp">
+            <option value="steel">Structural steel S355</option>
+            <option value="aluminium">Aluminium 6061 T6</option>
+            <option value="titanium">Titanium Ti 6Al 4V</option>
+            <option value="timber">Timber C24</option>
+            <option value="custom">Custom</option>
+          </select>
+        </label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="fld"><span>E (GPa)</span><input id="secE" class="inp" type="number" step="1" min="0" value="200"></label>
+          <label class="fld"><span>A (mm²)</span><input id="secA" class="inp" type="number" step="50" min="0" value="1500"></label>
+        </div>
+        <button id="btnApplyAll" class="btn btn-sm w-full mt-2">Apply section to all members</button>
+      </section>
+
+      <section class="panel">
+        <div class="panel-title">Workspace</div>
+        <div class="flex items-center justify-between gap-2">
+          <label class="toggle"><input id="snapChk" type="checkbox" checked> Snap to grid</label>
+          <select id="gridSel" class="inp !w-24 !py-1 !text-xs">
+            <option value="0.1">0.1 m</option>
+            <option value="0.25">0.25 m</option>
+            <option value="0.5" selected>0.5 m</option>
+            <option value="1">1 m</option>
+          </select>
+        </div>
+        <label class="toggle mt-2.5"><input id="lblChk" type="checkbox" checked> Show node labels</label>
+        <div class="mt-3 text-[11px] text-slate-500 leading-relaxed">
+          Wheel or pinch to zoom. Drag empty space, or use the right mouse button, to pan. <span class="text-slate-400">F</span> fits the view, <span class="text-slate-400">Enter</span> solves, <span class="text-slate-400">Esc</span> cancels.
+        </div>
+      </section>
+
+      <section class="px-1 pb-2 text-[11px] text-slate-600 leading-relaxed">
+        Direct stiffness method, linear elastic, small displacement theory. Pin jointed members carry axial force only. Runs entirely in your browser.
+        <div class="mt-1.5">Built by <a class="text-slate-400 hover:text-cyan-300" href="https://kaballamuru.com" target="_blank" rel="noopener">M. S. Kaballamuru</a></div>
+      </section>
+    </aside>
+
+    <!-- ===================== VIEWPORT ===================== -->
+    <main class="order-1 lg:order-none relative flex-1 min-h-[62vh] lg:min-h-0 bg-dots overflow-hidden">
+      <div id="viewport" class="absolute inset-0"></div>
+      <div id="labels" class="absolute inset-0 pointer-events-none overflow-hidden"></div>
+
+      <!-- mode badge -->
+      <div class="ovl left-3 top-3 px-3 py-2 max-w-[calc(100%-1.5rem)] sm:max-w-sm pointer-events-none">
+        <div class="flex items-center gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]"></span>
+          <span id="modeName" class="text-xs font-semibold text-white">Select</span>
+        </div>
+        <div id="modeHint" class="text-[11px] text-slate-400 mt-0.5 leading-snug"></div>
+      </div>
+
+      <!-- legend -->
+      <div id="legend" class="ovl right-3 top-3 p-3 w-56 hidden pointer-events-none">
+        <div class="flex justify-between text-[10px] uppercase tracking-wider text-slate-400 mb-1.5"><span>Compression</span><span>Tension</span></div>
+        <div class="ramp h-2.5 rounded-full"></div>
+        <div class="flex justify-between text-[10px] font-mono text-slate-300 mt-1.5">
+          <span id="lgMin">−0</span><span>0</span><span id="lgMax">+0</span>
+        </div>
+        <div class="text-[10px] text-slate-500 mt-1 text-center">Axial stress, MPa</div>
+      </div>
+
+      <!-- view controls -->
+      <div class="ovl right-3 bottom-3 flex flex-col p-1 gap-1">
+        <button id="zIn"  class="btn btn-sm !border-0 !bg-transparent hover:!bg-white/10" title="Zoom in">+</button>
+        <button id="zOut" class="btn btn-sm !border-0 !bg-transparent hover:!bg-white/10" title="Zoom out">−</button>
+        <button id="zFit" class="btn btn-sm !border-0 !bg-transparent hover:!bg-white/10" title="Fit view (F)">
+          <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        </button>
+      </div>
+
+      <!-- deformation controls -->
+      <div id="deformPanel" class="ovl left-1/2 -translate-x-1/2 bottom-12 sm:bottom-3 px-3 py-2.5 hidden w-[calc(100%-5.5rem)] sm:w-auto">
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div class="flex items-center gap-2">
+            <span class="text-[11px] text-slate-400">Exaggeration</span>
+            <input id="exag" type="range" min="0" max="100" value="50" class="w-28">
+            <span id="exagVal" class="text-[11px] font-mono text-cyan-300 w-16">×1</span>
+          </div>
+          <label class="toggle"><input id="ghostChk" type="checkbox" checked> Undeformed</label>
+          <label class="toggle"><input id="valChk" type="checkbox"> Forces</label>
+          <label class="toggle"><input id="loopChk" type="checkbox"> Loop</label>
+          <button id="btnReplay" class="btn btn-sm">Replay</button>
+        </div>
+      </div>
+
+      <!-- status bar -->
+      <div class="absolute left-3 bottom-3 text-[10.5px] font-mono text-slate-500 pointer-events-none hidden sm:block">
+        <span id="stCoord">x 0.00  y 0.00</span><span class="mx-2 text-slate-700">|</span><span id="stCount">0 nodes · 0 members</span><span class="mx-2 text-slate-700">|</span><span id="stZoom">60 px/m</span>
+      </div>
+
+      <div id="tooltip" class="absolute hidden pointer-events-none z-10 px-2.5 py-2 rounded-lg bg-slate-950/95 border border-white/10 text-[11px] font-mono text-slate-200 shadow-xl leading-relaxed"></div>
+      <div id="toasts" class="absolute left-1/2 -translate-x-1/2 top-20 flex flex-col items-center gap-2 z-30 pointer-events-none w-[calc(100%-2rem)] sm:w-auto"></div>
+    </main>
+
+    <!-- ===================== RIGHT PANEL ===================== -->
+    <aside class="order-3 lg:order-none lg:w-[22rem] shrink-0 border-t lg:border-t-0 lg:border-l border-white/5 bg-slate-950 lg:overflow-y-auto p-3 space-y-3">
+      <section class="panel">
+        <div class="panel-title">Inspector</div>
+        <div id="inspector"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-title">Analysis results <span id="resBadge"></span></div>
+        <div id="results"></div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<!-- ======================================================================
+     SOLVER WORKER (loaded via Blob URL so the app stays a single file)
+     ====================================================================== -->
+<script type="text/js-worker" id="solver-worker">
+'use strict';
+
+self.onmessage = function (e) {
+  var msg = e.data;
+  var t0 = performance.now();
+  try {
+    var result = solveTruss(msg.nodes, msg.elements);
+    result.solveMs = performance.now() - t0;
+    self.postMessage({ id: msg.id, ok: true, result: result });
+  } catch (err) {
+    self.postMessage({ id: msg.id, ok: false, error: (err && err.message) ? err.message : String(err) });
+  }
+};
+
+function restraint(support) {
+  switch (support) {
+    case 'pin':     return [true, true];
+    case 'rollerY': return [false, true];
+    case 'rollerX': return [true, false];
+    default:        return [false, false];
+  }
+}
+
+/**
+ * Gaussian elimination with partial pivoting on a dense row major matrix.
+ * Throws an error carrying the failing column when a pivot collapses,
+ * which for a stiffness matrix means a mechanism (rigid body mode).
+ */
+function gaussSolve(A, b, n, tol) {
+  for (var k = 0; k < n; k++) {
+    var p = k, mx = Math.abs(A[k * n + k]);
+    for (var r = k + 1; r < n; r++) {
+      var v = Math.abs(A[r * n + k]);
+      if (v > mx) { mx = v; p = r; }
+    }
+    if (!(mx > tol)) { var err = new Error('singular'); err.col = k; throw err; }
+    if (p !== k) {
+      for (var c = k; c < n; c++) {
+        var t = A[k * n + c]; A[k * n + c] = A[p * n + c]; A[p * n + c] = t;
+      }
+      var tb = b[k]; b[k] = b[p]; b[p] = tb;
+    }
+    var piv = A[k * n + k];
+    for (var r2 = k + 1; r2 < n; r2++) {
+      var f = A[r2 * n + k] / piv;
+      if (f === 0) continue;
+      A[r2 * n + k] = 0;
+      for (var c2 = k + 1; c2 < n; c2++) A[r2 * n + c2] -= f * A[k * n + c2];
+      b[r2] -= f * b[k];
+    }
+  }
+  var x = new Float64Array(n);
+  for (var i = n - 1; i >= 0; i--) {
+    var s = b[i];
+    for (var j = i + 1; j < n; j++) s -= A[i * n + j] * x[j];
+    x[i] = s / A[i * n + i];
+  }
+  return x;
+}
+
+/**
+ * nodes:    [{id, x, y, support, fx, fy}]   SI units (m, N)
+ * elements: [{id, n1, n2, E, A}]            SI units (Pa, m^2)
+ */
+function solveTruss(nodes, elements) {
+  var nn = nodes.length;
+  if (nn < 2) throw new Error('The model needs at least two nodes.');
+  if (elements.length < 1) throw new Error('The model needs at least one member.');
+
+  var ndof = 2 * nn;
+  var index = new Map();
+  for (var i = 0; i < nn; i++) index.set(nodes[i].id, i);
+
+  var K = new Float64Array(ndof * ndof);
+  var F = new Float64Array(ndof);
+  var connectivity = new Uint32Array(nn);
+  var geo = new Array(elements.length);
+
+  /* ---- assemble global stiffness: ke = (EA/L) * B^T B, B = [-c, -s, c, s] ---- */
+  for (var e = 0; e < elements.length; e++) {
+    var el = elements[e];
+    var a = index.get(el.n1), b = index.get(el.n2);
+    if (a === undefined || b === undefined) throw new Error('Member M' + el.id + ' references a missing node.');
+    var dx = nodes[b].x - nodes[a].x, dy = nodes[b].y - nodes[a].y;
+    var L = Math.hypot(dx, dy);
+    if (L < 1e-9) throw new Error('Member M' + el.id + ' has zero length.');
+    if (!(el.E > 0) || !(el.A > 0)) throw new Error('Member M' + el.id + ' needs positive E and A.');
+    var c = dx / L, s = dy / L, k = el.E * el.A / L;
+    var d = [2 * a, 2 * a + 1, 2 * b, 2 * b + 1];
+    var B = [-c, -s, c, s];
+    for (var p = 0; p < 4; p++) {
+      var row = d[p] * ndof;
+      for (var q = 0; q < 4; q++) K[row + d[q]] += k * B[p] * B[q];
+    }
+    geo[e] = { d: d, B: B, L: L, E: el.E, A: el.A };
+    connectivity[a]++; connectivity[b]++;
+  }
+
+  /* ---- loads and boundary conditions ---- */
+  var fixed = new Uint8Array(ndof);
+  var nRestrained = 0;
+  for (var n = 0; n < nn; n++) {
+    var r = restraint(nodes[n].support);
+    fixed[2 * n] = r[0] ? 1 : 0;
+    fixed[2 * n + 1] = r[1] ? 1 : 0;
+    nRestrained += (r[0] ? 1 : 0) + (r[1] ? 1 : 0);
+    F[2 * n] = +nodes[n].fx || 0;
+    F[2 * n + 1] = +nodes[n].fy || 0;
+    if (connectivity[n] === 0 && !(r[0] && r[1])) {
+      throw new Error('Node N' + nodes[n].id + ' is not connected to any member.');
+    }
+  }
+  if (nRestrained < 3) {
+    throw new Error('The structure needs at least 3 restrained directions (for example one pin and one roller) to prevent rigid body motion.');
+  }
+
+  /* ---- partition: solve K_ff u_f = F_f (prescribed displacements are zero) ---- */
+  var free = [];
+  for (var dof = 0; dof < ndof; dof++) if (!fixed[dof]) free.push(dof);
+  var nf = free.length;
+  var u = new Float64Array(ndof);
+
+  if (nf > 0) {
+    var Kff = new Float64Array(nf * nf);
+    var Ff = new Float64Array(nf);
+    var maxDiag = 0;
+    for (var ri = 0; ri < nf; ri++) {
+      var gr = free[ri] * ndof;
+      for (var ci = 0; ci < nf; ci++) Kff[ri * nf + ci] = K[gr + free[ci]];
+      Ff[ri] = F[free[ri]];
+      maxDiag = Math.max(maxDiag, Math.abs(Kff[ri * nf + ri]));
+    }
+    var tol = maxDiag > 0 ? maxDiag * 1e-10 : 1e-30;
+    var x;
+    try {
+      x = gaussSolve(Kff, Ff, nf, tol);
+    } catch (err) {
+      if (err && err.col !== undefined) {
+        var bad = free[err.col];
+        throw new Error('The structure is unstable (a mechanism). The stiffness matrix becomes singular at node N' +
+          nodes[Math.floor(bad / 2)].id + ' in the ' + (bad % 2 ? 'Y' : 'X') +
+          ' direction. Add members or supports to brace it.');
+      }
+      throw err;
+    }
+    for (var fi = 0; fi < nf; fi++) u[free[fi]] = x[fi];
+  }
+
+  /* ---- reactions R = K u - F at restrained DOFs ---- */
+  var reactions = [];
+  var sumX = 0, sumY = 0;
+  for (var m = 0; m < nn; m++) { sumX += F[2 * m]; sumY += F[2 * m + 1]; }
+  for (var rn = 0; rn < nn; rn++) {
+    if (!fixed[2 * rn] && !fixed[2 * rn + 1]) continue;
+    var rx = 0, ry = 0;
+    for (var comp = 0; comp < 2; comp++) {
+      var gd = 2 * rn + comp;
+      if (!fixed[gd]) continue;
+      var sum = 0, base = gd * ndof;
+      for (var cc = 0; cc < ndof; cc++) sum += K[base + cc] * u[cc];
+      var R = sum - F[gd];
+      if (comp === 0) rx = R; else ry = R;
+    }
+    sumX += rx; sumY += ry;
+    reactions.push({ index: rn, rx: rx, ry: ry, fixedX: !!fixed[2 * rn], fixedY: !!fixed[2 * rn + 1] });
+  }
+
+  /* ---- element strain, stress, axial force ---- */
+  var out = new Array(geo.length);
+  for (var g = 0; g < geo.length; g++) {
+    var G = geo[g];
+    var elong = 0;
+    for (var kk = 0; kk < 4; kk++) elong += G.B[kk] * u[G.d[kk]];
+    var strain = elong / G.L;
+    var stress = G.E * strain;
+    out[g] = { strain: strain, stress: stress, force: stress * G.A, length: G.L };
+  }
+
+  return {
+    u: Array.from(u),
+    elements: out,
+    reactions: reactions,
+    residual: [sumX, sumY],
+    ndof: ndof,
+    nfree: nf,
+    nRestrained: nRestrained
+  };
+}
+</script>
+
+<!-- ======================================================================
+     APPLICATION
+     ====================================================================== -->
+<script>
+(function () {
+'use strict';
+
+/* ------------------------------------------------------------------ *
+ *  Utilities
+ * ------------------------------------------------------------------ */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => Array.from(document.querySelectorAll(s));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const MINUS = '\u2212';
+function fmt(v, d = 2, signed = false) {
+  if (!isFinite(v)) return '0';
+  if (Math.abs(v) < 0.5 * Math.pow(10, -d)) v = 0;
+  const s = Math.abs(v).toLocaleString('en-GB', { minimumFractionDigits: d, maximumFractionDigits: d });
+  if (v < 0) return MINUS + s;
+  return (signed && v > 0 ? '+' : '') + s;
+}
+function fmtSci(v) {
+  if (v === 0) return '0';
+  const a = Math.abs(v);
+  if (a >= 0.01 && a < 1e5) return fmt(v, a < 1 ? 4 : 2);
+  const e = Math.floor(Math.log10(a));
+  return (v < 0 ? MINUS : '') + (a / Math.pow(10, e)).toFixed(2) + 'e' + e;
+}
+function esc(s) { return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+const C_BLUE = [38, 99, 250], C_GREEN = [33, 204, 102], C_RED = [240, 59, 54];
+function rampCss(t) {
+  t = clamp(t, -1, 1);
+  const b = t < 0 ? C_BLUE : C_RED, k = Math.abs(t);
+  const c = C_GREEN.map((g, i) => Math.round(g + (b[i] - g) * k));
+  return `rgb(${c[0]},${c[1]},${c[2]})`;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Application state
+ *  Units in the model: length m, force kN, E GPa, A mm²
+ * ------------------------------------------------------------------ */
+const MATERIALS = { steel: 200, aluminium: 68.9, titanium: 113.8, timber: 11 };
+const MODE_INFO = {
+  select:  ['Select / move',  'Click a node or member to inspect it. Drag nodes to move them. Drag empty space to pan.'],
+  node:    ['Add node',       'Click to place a joint. It snaps to the grid while snapping is on.'],
+  element: ['Add member',     'Click two nodes to connect them. Keeps chaining from the last node. Esc stops.'],
+  support: ['Apply support',  'Click a node to apply the support type chosen in the panel.'],
+  load:    ['Apply load',     'Click a node to apply the load set in the panel.'],
+  delete:  ['Delete',         'Click a node or member to remove it. Removing a node removes its members.']
+};
+
+const S = {
+  nodes: [], elements: [], nid: 1, eid: 1,
+  mode: 'select', pending: null, selected: null, hover: null,
+  supportType: 'pin', results: null, solving: false,
+  snap: true, grid: 0.5, showLabels: true, showValues: false, showGhost: true, loop: false,
+  exagMult: 1, autoScale: 1, animStart: 0, cursor: { x: 0, y: 0 }, cursorIn: false
+};
+let dirty = true, viewDirty = true, phase = 0, solveSeq = 0;
+let P = new Map(); // displayed (possibly deformed) node positions, id -> [x, y]
+
+const getNode = (id) => S.nodes.find((n) => n.id === id);
+const getEl = (id) => S.elements.find((e) => e.id === id);
+
+/* ---------------- undo / redo ---------------- */
+const undoStack = [], redoStack = [];
+const snapshot = () => JSON.stringify({ nodes: S.nodes, elements: S.elements, nid: S.nid, eid: S.eid });
+function pushUndo(snap) {
+  undoStack.push(snap || snapshot());
+  if (undoStack.length > 150) undoStack.shift();
+  redoStack.length = 0;
+  updateUndoButtons();
+}
+function restore(str) {
+  const d = JSON.parse(str);
+  S.nodes = d.nodes; S.elements = d.elements; S.nid = d.nid; S.eid = d.eid;
+  S.selected = null; S.pending = null; S.hover = null;
+  modelChanged();
+}
+function undo() { if (!undoStack.length) return; redoStack.push(snapshot()); restore(undoStack.pop()); updateUndoButtons(); }
+function redo() { if (!redoStack.length) return; undoStack.push(snapshot()); restore(redoStack.pop()); updateUndoButtons(); }
+function updateUndoButtons() { $('#btnUndo').disabled = !undoStack.length; $('#btnRedo').disabled = !redoStack.length; }
+
+function modelChanged() {
+  if (S.solving) { solveSeq++; S.solving = false; setSolvingUI(false); }
+  if (S.results) { S.results = null; renderResults(); }
+  if (S.pending !== null && !getNode(S.pending)) S.pending = null;
+  if (S.selected && !(S.selected.type === 'node' ? getNode(S.selected.id) : getEl(S.selected.id))) S.selected = null;
+  rebuildNodeMeshes();
+  renderInspector();
+  updateCounts();
+  dirty = true;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Web Worker (Blob URL)
+ * ------------------------------------------------------------------ */
+const workerURL = URL.createObjectURL(new Blob([document.getElementById('solver-worker').textContent], { type: 'text/javascript' }));
+const worker = new Worker(workerURL);
+worker.onmessage = (e) => {
+  const d = e.data;
+  if (d.id !== solveSeq) return; // stale result from an edited model
+  S.solving = false;
+  setSolvingUI(false);
+  if (!d.ok) { toast(d.error, 'error'); return; }
+  processResults(d.result);
+};
+worker.onerror = (e) => { S.solving = false; setSolvingUI(false); toast('Solver error: ' + (e.message || 'unknown'), 'error'); };
+
+function solve() {
+  if (S.solving) return;
+  if (S.nodes.length < 2 || S.elements.length < 1) { toast('Add at least two nodes and one member first.', 'warn'); return; }
+  S.solving = true;
+  setSolvingUI(true);
+  worker.postMessage({
+    id: ++solveSeq,
+    nodes: S.nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, support: n.support, fx: n.fx * 1e3, fy: n.fy * 1e3 })),
+    elements: S.elements.map((e) => ({ id: e.id, n1: e.n1, n2: e.n2, E: e.E * 1e9, A: e.A * 1e-6 }))
+  });
+}
+function setSolvingUI(on) {
+  $('#solveIcon').classList.toggle('hidden', on);
+  $('#solveSpin').classList.toggle('hidden', !on);
+  $('#btnSolve').disabled = on;
+}
+
+function processResults(r) {
+  const disp = {}, elem = {};
+  let maxDisp = 0, maxDispNode = null, maxT = 0, maxC = 0, maxTid = null, maxCid = null;
+  S.nodes.forEach((n, i) => {
+    const ux = r.u[2 * i], uy = r.u[2 * i + 1];
+    disp[n.id] = [ux, uy];
+    const m = Math.hypot(ux, uy);
+    if (m > maxDisp) { maxDisp = m; maxDispNode = n.id; }
+  });
+  S.elements.forEach((e, i) => {
+    const o = r.elements[i];
+    const st = o.stress / 1e6;
+    elem[e.id] = { force: o.force / 1e3, stress: st, strain: o.strain, length: o.length };
+    if (st > maxT) { maxT = st; maxTid = e.id; }
+    if (st < maxC) { maxC = st; maxCid = e.id; }
+  });
+  const reactions = r.reactions.map((rc) => ({ id: S.nodes[rc.index].id, rx: rc.rx / 1e3, ry: rc.ry / 1e3, fixedX: rc.fixedX, fixedY: rc.fixedY }));
+  const bb = bbox();
+  const size = Math.max(bb.w, bb.h, 1e-3);
+  S.autoScale = maxDisp > 0 ? (0.08 * size) / maxDisp : 1;
+  S.results = {
+    disp, elem, reactions, maxDisp, maxDispNode, maxT, maxC, maxTid, maxCid,
+    maxAbs: Math.max(Math.abs(maxT), Math.abs(maxC)),
+    residual: [r.residual[0] / 1e3, r.residual[1] / 1e3],
+    ndof: r.ndof, nfree: r.nfree, nRestrained: r.nRestrained, time: r.solveMs
+  };
+  S.animStart = performance.now();
+  renderResults();
+  renderInspector();
+  dirty = true;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Three.js scene
+ * ------------------------------------------------------------------ */
+const container = $('#viewport');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+container.appendChild(renderer.domElement);
+const canvas = renderer.domElement;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0a0f1c);
+const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -100, 100);
+camera.position.set(0, 0, 10);
+camera.zoom = 60;
+
+function resize() {
+  const w = Math.max(container.clientWidth, 1), h = Math.max(container.clientHeight, 1);
+  renderer.setSize(w, h, false);
+  canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+  camera.left = -w / 2; camera.right = w / 2; camera.top = h / 2; camera.bottom = -h / 2;
+  camera.updateProjectionMatrix();
+  viewDirty = true;
+}
+new ResizeObserver(resize).observe(container);
+
+function screenToWorld(cx, cy) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: camera.position.x + (cx - r.left - r.width / 2) / camera.zoom,
+    y: camera.position.y - (cy - r.top - r.height / 2) / camera.zoom
+  };
+}
+function worldToScreen(x, y) {
+  return [
+    (x - camera.position.x) * camera.zoom + container.clientWidth / 2,
+    container.clientHeight / 2 - (y - camera.position.y) * camera.zoom
+  ];
+}
+
+/* ---------------- adaptive grid ---------------- */
+const gridMat = new THREE.LineBasicMaterial({ vertexColors: true });
+let gridObj = null, gridKey = '';
+function updateGrid() {
+  const w = container.clientWidth, h = container.clientHeight, z = camera.zoom;
+  let step = S.grid;
+  while (step * z < 12) step *= 2;
+  const x0 = camera.position.x - w / 2 / z, x1 = camera.position.x + w / 2 / z;
+  const y0 = camera.position.y - h / 2 / z, y1 = camera.position.y + h / 2 / z;
+  const key = [x0, x1, y0, y1, step].map((v) => v.toFixed(4)).join();
+  if (key === gridKey) return;
+  gridKey = key;
+  const pos = [], col = [];
+  const minor = [0.075, 0.105, 0.17], major = [0.12, 0.165, 0.25], axis = [0.22, 0.29, 0.40];
+  const push = (ax, ay, bx, by, c) => { pos.push(ax, ay, 0, bx, by, 0); col.push(...c, ...c); };
+  const ix0 = Math.floor(x0 / step), ix1 = Math.ceil(x1 / step);
+  const iy0 = Math.floor(y0 / step), iy1 = Math.ceil(y1 / step);
+  for (let i = ix0; i <= ix1; i++) {
+    const x = i * step;
+    push(x, y0, x, y1, i === 0 ? axis : (i % 5 === 0 ? major : minor));
+  }
+  for (let j = iy0; j <= iy1; j++) {
+    const y = j * step;
+    push(x0, y, x1, y, j === 0 ? axis : (j % 5 === 0 ? major : minor));
+  }
+  if (gridObj) { scene.remove(gridObj); gridObj.geometry.dispose(); }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  gridObj = new THREE.LineSegments(g, gridMat);
+  gridObj.frustumCulled = false;
+  gridObj.renderOrder = 0;
+  scene.add(gridObj);
+}
+
+/* ---------------- members: custom shader with per vertex stress attribute ---------------- */
+const memberMaterial = new THREE.ShaderMaterial({
+  side: THREE.DoubleSide,
+  uniforms: {
+    uMode: { value: 0 },
+    uBase: { value: new THREE.Color(0x8b9bb4) },
+    uSel:  { value: new THREE.Color(0x22d3ee) }
+  },
+  vertexShader: `
+    attribute float aStress;
+    attribute float aSel;
+    varying float vStress;
+    varying float vSel;
+    varying float vEdge;
+    attribute float aEdge;
+    void main() {
+      vStress = aStress;
+      vSel = aSel;
+      vEdge = aEdge;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }`,
+  fragmentShader: `
+    uniform float uMode;
+    uniform vec3 uBase;
+    uniform vec3 uSel;
+    varying float vStress;
+    varying float vSel;
+    varying float vEdge;
+    vec3 ramp(float t) {
+      t = clamp(t, -1.0, 1.0);
+      vec3 blue  = vec3(0.149, 0.388, 0.980);
+      vec3 green = vec3(0.129, 0.800, 0.400);
+      vec3 red   = vec3(0.941, 0.231, 0.212);
+      if (t < 0.0) return mix(green, blue, -t);
+      return mix(green, red, t);
+    }
+    void main() {
+      vec3 c = mix(uBase, ramp(vStress), uMode);
+      c = mix(c, uSel, vSel);
+      float shade = 1.0 - 0.28 * pow(abs(vEdge), 3.0);
+      gl_FragColor = vec4(c * shade, 1.0);
+    }`
+});
+let memGeo = null, memMesh = null, memCap = 0;
+function ensureMemberCapacity(n) {
+  if (memGeo && n <= memCap) return;
+  memCap = Math.max(32, Math.ceil(n * 1.5));
+  if (memMesh) { scene.remove(memMesh); memGeo.dispose(); }
+  memGeo = new THREE.BufferGeometry();
+  const mk = (arr, size) => { const a = new THREE.BufferAttribute(arr, size); a.setUsage(THREE.DynamicDrawUsage); return a; };
+  memGeo.setAttribute('position', mk(new Float32Array(memCap * 12), 3));
+  memGeo.setAttribute('aStress', mk(new Float32Array(memCap * 4), 1));
+  memGeo.setAttribute('aSel', mk(new Float32Array(memCap * 4), 1));
+  const edge = new Float32Array(memCap * 4);
+  const idx = new Uint32Array(memCap * 6);
+  for (let i = 0; i < memCap; i++) {
+    edge.set([1, -1, 1, -1], i * 4);
+    const b = i * 4;
+    idx.set([b, b + 1, b + 2, b + 2, b + 1, b + 3], i * 6);
+  }
+  memGeo.setAttribute('aEdge', new THREE.BufferAttribute(edge, 1));
+  memGeo.setIndex(new THREE.BufferAttribute(idx, 1));
+  memMesh = new THREE.Mesh(memGeo, memberMaterial);
+  memMesh.frustumCulled = false;
+  memMesh.renderOrder = 2;
+  scene.add(memMesh);
+}
+function updateMembers() {
+  const n = S.elements.length;
+  ensureMemberCapacity(n);
+  const pos = memGeo.attributes.position.array;
+  const st = memGeo.attributes.aStress.array;
+  const sel = memGeo.attributes.aSel.array;
+  const halfW = (S.results ? 3.4 : 2.6) / camera.zoom;
+  const R = S.results;
+  const maxAbs = R && R.maxAbs > 0 ? R.maxAbs : 1;
+  for (let i = 0; i < n; i++) {
+    const e = S.elements[i];
+    const a = P.get(e.n1), b = P.get(e.n2);
+    if (!a || !b) continue;
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const L = Math.hypot(dx, dy) || 1;
+    const nx = (-dy / L) * halfW, ny = (dx / L) * halfW;
+    pos.set([a[0] + nx, a[1] + ny, 1, a[0] - nx, a[1] - ny, 1, b[0] + nx, b[1] + ny, 1, b[0] - nx, b[1] - ny, 1], i * 12);
+    const sv = R && R.elem[e.id] ? R.elem[e.id].stress / maxAbs : 0;
+    st.fill(sv, i * 4, i * 4 + 4);
+    let s = 0;
+    if (S.selected && S.selected.type === 'element' && S.selected.id === e.id) s = 0.8;
+    else if (S.hover && S.hover.type === 'element' && S.hover.id === e.id) s = S.mode === 'delete' ? 0.6 : 0.35;
+    sel.fill(s, i * 4, i * 4 + 4);
+  }
+  memberMaterial.uniforms.uSel.value.setHex(S.mode === 'delete' && S.hover && S.hover.type === 'element' && !(S.selected && S.selected.id === S.hover.id && S.selected.type === 'element') ? 0xf87171 : 0x22d3ee);
+  memberMaterial.uniforms.uMode.value = R ? 1 : 0;
+  memGeo.setDrawRange(0, n * 6);
+  memGeo.attributes.position.needsUpdate = true;
+  memGeo.attributes.aStress.needsUpdate = true;
+  memGeo.attributes.aSel.needsUpdate = true;
+}
+
+/* ---------------- undeformed ghost ---------------- */
+const ghostMat = new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.45 });
+let ghost = null;
+function updateGhost() {
+  if (ghost) { scene.remove(ghost); ghost.geometry.dispose(); ghost = null; }
+  if (!S.results || !S.showGhost) return;
+  const pos = [];
+  for (const e of S.elements) {
+    const a = getNode(e.n1), b = getNode(e.n2);
+    if (a && b) pos.push(a.x, a.y, 0.5, b.x, b.y, 0.5);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  ghost = new THREE.LineSegments(g, ghostMat);
+  ghost.frustumCulled = false;
+  ghost.renderOrder = 1;
+  scene.add(ghost);
+}
+
+/* ---------------- nodes ---------------- */
+const circleGeo = new THREE.CircleGeometry(1, 28);
+const ringGeo = new THREE.RingGeometry(0.72, 1, 28);
+const nodeBorderMat = new THREE.MeshBasicMaterial({ color: 0x0a0f1c });
+const nodeGroup = new THREE.Group();
+scene.add(nodeGroup);
+const nodeMeshes = new Map();
+function rebuildNodeMeshes() {
+  for (const m of nodeMeshes.values()) { nodeGroup.remove(m.border); nodeGroup.remove(m.fill); m.fill.material.dispose(); }
+  nodeMeshes.clear();
+  for (const n of S.nodes) {
+    const border = new THREE.Mesh(circleGeo, nodeBorderMat);
+    const fill = new THREE.Mesh(circleGeo, new THREE.MeshBasicMaterial({ color: 0xe2e8f0 }));
+    border.renderOrder = 4; fill.renderOrder = 5;
+    nodeGroup.add(border, fill);
+    nodeMeshes.set(n.id, { border, fill });
+  }
+}
+const preview = new THREE.Mesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0x22d3ee, transparent: true, opacity: 0.6 }));
+preview.renderOrder = 6;
+scene.add(preview);
+
+function updateNodes() {
+  const z = camera.zoom;
+  const rB = (S.results ? 5.5 : 7) / z, rF = (S.results ? 3.6 : 4.8) / z;
+  for (const n of S.nodes) {
+    const m = nodeMeshes.get(n.id);
+    const p = P.get(n.id);
+    if (!m || !p) continue;
+    const isSel = S.selected && S.selected.type === 'node' && S.selected.id === n.id;
+    const isPend = S.pending === n.id;
+    const isHov = S.hover && S.hover.type === 'node' && S.hover.id === n.id;
+    const k = isSel || isPend || isHov ? 1.3 : 1;
+    m.border.position.set(p[0], p[1], 3);
+    m.fill.position.set(p[0], p[1], 3.1);
+    m.border.scale.setScalar(rB * k);
+    m.fill.scale.setScalar(rF * k);
+    let c = n.support !== 'none' ? 0xcbd5e1 : 0xf1f5f9;
+    if (isHov) c = S.mode === 'delete' ? 0xf87171 : 0xfbbf24;
+    if (isSel || isPend) c = 0x22d3ee;
+    m.fill.material.color.setHex(c);
+  }
+  const showPrev = S.mode === 'node' && S.cursorIn && !(S.hover && S.hover.type === 'node');
+  preview.visible = showPrev;
+  if (showPrev) {
+    const s = snapPt(S.cursor);
+    preview.position.set(s.x, s.y, 3.2);
+    preview.scale.setScalar(7 / z);
+  }
+}
+
+/* ---------------- rubber band line for member creation ---------------- */
+const rubberMat = new THREE.LineDashedMaterial({ color: 0x22d3ee, dashSize: 0.1, gapSize: 0.07, transparent: true, opacity: 0.85 });
+const rubberGeo = new THREE.BufferGeometry();
+rubberGeo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(6), 3));
+const rubber = new THREE.Line(rubberGeo, rubberMat);
+rubber.frustumCulled = false;
+rubber.renderOrder = 3;
+scene.add(rubber);
+function updateRubber() {
+  const on = S.mode === 'element' && S.pending !== null && S.cursorIn;
+  rubber.visible = on;
+  if (!on) return;
+  const a = P.get(S.pending);
+  if (!a) { rubber.visible = false; return; }
+  let b = [S.cursor.x, S.cursor.y];
+  if (S.hover && S.hover.type === 'node') b = P.get(S.hover.id) || b;
+  rubberGeo.attributes.position.array.set([a[0], a[1], 1.5, b[0], b[1], 1.5]);
+  rubberGeo.attributes.position.needsUpdate = true;
+  rubber.computeLineDistances();
+  rubberMat.dashSize = 7 / camera.zoom;
+  rubberMat.gapSize = 5 / camera.zoom;
+}
+
+/* ---------------- glyphs: supports, loads, reactions ---------------- */
+const glyphGroup = new THREE.Group();
+scene.add(glyphGroup);
+const GM = {
+  supLine: new THREE.LineBasicMaterial({ color: 0x94a3b8 }),
+  supFill: new THREE.MeshBasicMaterial({ color: 0x1e293b, side: THREE.DoubleSide }),
+  load:    new THREE.MeshBasicMaterial({ color: 0xf59e0b, side: THREE.DoubleSide }),
+  react:   new THREE.MeshBasicMaterial({ color: 0x34d399, side: THREE.DoubleSide })
+};
+function clearGlyphs() {
+  while (glyphGroup.children.length) { const c = glyphGroup.children.pop(); c.geometry.dispose(); }
+}
+function addTris(flat, mat, z) {
+  const a = new Float32Array((flat.length / 2) * 3);
+  for (let i = 0, k = 0; i < flat.length; i += 2) { a[k++] = flat[i]; a[k++] = flat[i + 1]; a[k++] = z; }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(a, 3));
+  const m = new THREE.Mesh(g, mat);
+  m.frustumCulled = false; m.renderOrder = 2.5;
+  glyphGroup.add(m);
+}
+function addSegs(flat, mat, z) {
+  const a = new Float32Array((flat.length / 2) * 3);
+  for (let i = 0, k = 0; i < flat.length; i += 2) { a[k++] = flat[i]; a[k++] = flat[i + 1]; a[k++] = z; }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(a, 3));
+  const m = new THREE.LineSegments(g, mat);
+  m.frustumCulled = false; m.renderOrder = 2.6;
+  glyphGroup.add(m);
+}
+function drawSupport(n, p) {
+  const z = camera.zoom;
+  const rot = n.support === 'rollerX';
+  const T = (x, y) => (rot ? [p[0] + y / z, p[1] - x / z] : [p[0] + x / z, p[1] + y / z]);
+  const flat = (pts) => pts.flatMap((q) => T(q[0], q[1]));
+  const tri = n.support === 'pin' ? [[0, -7], [-11, -24], [11, -24]] : [[0, -7], [-10, -20], [10, -20]];
+  addTris(flat(tri), GM.supFill, 2.2);
+  const segs = [tri[0], tri[1], tri[1], tri[2], tri[2], tri[0]];
+  const gy = n.support === 'pin' ? -24 : -29.5;
+  segs.push([-18, gy], [18, gy]);
+  for (let k = -15; k <= 15; k += 6) segs.push([k, gy], [k - 5, gy - 6]);
+  if (n.support !== 'pin') {
+    for (const cx of [-5.5, 5.5]) {
+      const cy = -24.6, r = 4;
+      for (let s = 0; s < 12; s++) {
+        const a0 = (s / 12) * Math.PI * 2, a1 = ((s + 1) / 12) * Math.PI * 2;
+        segs.push([cx + r * Math.cos(a0), cy + r * Math.sin(a0)], [cx + r * Math.cos(a1), cy + r * Math.sin(a1)]);
+      }
+    }
+  }
+  addSegs(flat(segs), GM.supLine, 2.3);
+}
+// Arrow whose tip sits offPx away from (tx, ty), pointing along (dx, dy). Returns tail position.
+function drawArrow(tx, ty, dx, dy, lenPx, offPx, mat) {
+  const L = Math.hypot(dx, dy);
+  if (L === 0) return null;
+  const z = camera.zoom, ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+  const tip = [tx - (ux * offPx) / z, ty - (uy * offPx) / z];
+  const head = 11 / z, hw = 5.5 / z, sw = 1.3 / z, len = lenPx / z;
+  const hb = [tip[0] - ux * head, tip[1] - uy * head];
+  const tail = [tip[0] - ux * len, tip[1] - uy * len];
+  addTris([
+    tip[0], tip[1], hb[0] + nx * hw, hb[1] + ny * hw, hb[0] - nx * hw, hb[1] - ny * hw,
+    tail[0] + nx * sw, tail[1] + ny * sw, tail[0] - nx * sw, tail[1] - ny * sw, hb[0] + nx * sw, hb[1] + ny * sw,
+    hb[0] + nx * sw, hb[1] + ny * sw, tail[0] - nx * sw, tail[1] - ny * sw, hb[0] - nx * sw, hb[1] - ny * sw
+  ], mat, 2.8);
+  return { tail, ux, uy };
+}
+
+/* ---------------- HTML label overlay ---------------- */
+const labelLayer = $('#labels');
+const labelPool = [];
+let labelCount = 0;
+function addLabel(x, y, text, cls, dx = 0, dy = 0) {
+  let el = labelPool[labelCount];
+  if (!el) { el = document.createElement('div'); labelLayer.appendChild(el); labelPool.push(el); }
+  labelCount++;
+  const [sx, sy] = worldToScreen(x, y);
+  el.className = 'lbl ' + cls;
+  if (el.textContent !== text) el.textContent = text;
+  el.style.transform = `translate(${(sx + dx).toFixed(1)}px, ${(sy + dy).toFixed(1)}px) translate(-50%, -50%)`;
+  el.style.display = '';
+}
+
+function updateGlyphsAndLabels() {
+  clearGlyphs();
+  labelCount = 0;
+  const R = S.results;
+  let maxF = 0;
+  for (const n of S.nodes) maxF = Math.max(maxF, Math.hypot(n.fx, n.fy));
+
+  for (const n of S.nodes) {
+    const p = P.get(n.id);
+    if (!p) continue;
+    if (n.support !== 'none') drawSupport(n, p);
+    const F = Math.hypot(n.fx, n.fy);
+    if (F > 0) {
+      const len = 34 + 34 * (maxF > 0 ? F / maxF : 1);
+      const a = drawArrow(p[0], p[1], n.fx, n.fy, len, 9, GM.load);
+      if (a) addLabel(a.tail[0], a.tail[1], fmt(F, 1) + ' kN', 'lbl-load', -a.ux * 22, a.uy * 12);
+    }
+    if (S.showLabels) addLabel(p[0], p[1], 'N' + n.id, 'lbl-node', 13, -12);
+  }
+
+  if (R) {
+    let maxR = 0;
+    for (const rc of R.reactions) maxR = Math.max(maxR, Math.abs(rc.rx), Math.abs(rc.ry));
+    for (const rc of R.reactions) {
+      const n = getNode(rc.id), p = P.get(rc.id);
+      if (!n || !p) continue;
+      const comps = [];
+      if (rc.fixedX && Math.abs(rc.rx) > 1e-6 * Math.max(maxR, 1)) comps.push([Math.sign(rc.rx), 0, rc.rx]);
+      if (rc.fixedY && Math.abs(rc.ry) > 1e-6 * Math.max(maxR, 1)) comps.push([0, Math.sign(rc.ry), rc.ry]);
+      for (const [dx, dy, val] of comps) {
+        const glyphBelow = (n.support === 'pin' || n.support === 'rollerY') && dy > 0;
+        const glyphLeft = n.support === 'rollerX' && dx > 0;
+        const off = glyphBelow || glyphLeft ? 36 : 10;
+        const len = 30 + 26 * (maxR > 0 ? Math.abs(val) / maxR : 1);
+        const a = drawArrow(p[0], p[1], dx, dy, len, off, GM.react);
+        if (a) addLabel(a.tail[0], a.tail[1], (dx ? 'Rx ' : 'Ry ') + fmt(Math.abs(val), 1), 'lbl-react', -a.ux * 26, a.uy * 12);
+      }
+    }
+    if (S.showValues) {
+      for (const e of S.elements) {
+        const a = P.get(e.n1), b = P.get(e.n2), r = R.elem[e.id];
+        if (!a || !b || !r) continue;
+        const cls = Math.abs(r.force) < 1e-6 ? 'lbl-z' : r.force > 0 ? 'lbl-t' : 'lbl-c';
+        addLabel((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, fmt(r.force, 1, true), cls);
+      }
+    }
+  }
+  for (let i = labelCount; i < labelPool.length; i++) labelPool[i].style.display = 'none';
+}
+
+/* ---------------- positions with animated deformation ---------------- */
+function animPhase(now) {
+  if (!S.results) return 0;
+  const t = (now - S.animStart) / 1000;
+  if (S.loop) return 0.5 - 0.5 * Math.cos(t * Math.PI);
+  const k = Math.min(1, t / 1.1);
+  return 1 - Math.pow(1 - k, 3);
+}
+function computePositions() {
+  P = new Map();
+  const R = S.results;
+  const f = R ? S.autoScale * S.exagMult * phase : 0;
+  for (const n of S.nodes) {
+    const u = R && R.disp[n.id];
+    P.set(n.id, u ? [n.x + f * u[0], n.y + f * u[1]] : [n.x, n.y]);
+  }
+}
+
+/* ---------------- render loop ---------------- */
+function frame(now) {
+  requestAnimationFrame(frame);
+  const newPhase = animPhase(now);
+  if (newPhase !== phase) { phase = newPhase; dirty = true; }
+  if (viewDirty) { updateGrid(); viewDirty = false; dirty = true; $('#stZoom').textContent = Math.round(camera.zoom) + ' px/m'; }
+  if (dirty) {
+    computePositions();
+    updateGhost();
+    updateMembers();
+    updateNodes();
+    updateRubber();
+    updateGlyphsAndLabels();
+    dirty = false;
+  }
+  renderer.render(scene, camera);
+}
+
+/* ------------------------------------------------------------------ *
+ *  Picking
+ * ------------------------------------------------------------------ */
+function distToSeg(px, py, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1];
+  const L2 = dx * dx + dy * dy || 1e-12;
+  const t = clamp(((px - a[0]) * dx + (py - a[1]) * dy) / L2, 0, 1);
+  return Math.hypot(px - (a[0] + t * dx), py - (a[1] + t * dy));
+}
+function pick(w) {
+  const z = camera.zoom;
+  let best = null, bd = 13 / z;
+  for (const n of S.nodes) {
+    const p = P.get(n.id) || [n.x, n.y];
+    const d = Math.hypot(p[0] - w.x, p[1] - w.y);
+    if (d < bd) { bd = d; best = { type: 'node', id: n.id }; }
+  }
+  if (best) return best;
+  bd = 7 / z;
+  for (const e of S.elements) {
+    const a = P.get(e.n1), b = P.get(e.n2);
+    if (!a || !b) continue;
+    const d = distToSeg(w.x, w.y, a, b);
+    if (d < bd) { bd = d; best = { type: 'element', id: e.id }; }
+  }
+  return best;
+}
+function snapPt(w) {
+  if (!S.snap) return { x: w.x, y: w.y };
+  const g = S.grid;
+  return { x: +(Math.round(w.x / g) * g).toFixed(6), y: +(Math.round(w.y / g) * g).toFixed(6) };
+}
+
+/* ------------------------------------------------------------------ *
+ *  Pointer interaction (mouse, pen, touch, pinch)
+ * ------------------------------------------------------------------ */
+const pointers = new Map();
+let gesture = null;
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+canvas.addEventListener('pointerdown', (e) => {
+  canvas.setPointerCapture(e.pointerId);
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pointers.size === 2) {
+    const [p1, p2] = [...pointers.values()];
+    const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+    gesture = { type: 'pinch', dist: Math.hypot(p1.x - p2.x, p1.y - p2.y), zoom: camera.zoom, world: screenToWorld(mid.x, mid.y) };
+    return;
+  }
+  if (pointers.size > 2) return;
+  const base = { sx: e.clientX, sy: e.clientY, cx: camera.position.x, cy: camera.position.y, moved: false };
+  if (e.button === 1 || e.button === 2) { gesture = Object.assign(base, { type: 'pan', moved: true }); canvas.style.cursor = 'grabbing'; return; }
+  const w = screenToWorld(e.clientX, e.clientY);
+  const hit = pick(w);
+  if (S.mode === 'select' && hit && hit.type === 'node') {
+    gesture = Object.assign(base, { type: 'drag', id: hit.id, snap: snapshot() });
+    return;
+  }
+  gesture = Object.assign(base, { type: 'press', hit });
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (pointers.has(e.pointerId)) pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  const w = screenToWorld(e.clientX, e.clientY);
+  S.cursor = w;
+  S.cursorIn = true;
+  const sp = S.mode === 'node' ? snapPt(w) : w;
+  $('#stCoord').textContent = `x ${fmt(sp.x, 2)}  y ${fmt(sp.y, 2)} m`;
+
+  if (gesture && gesture.type === 'pinch' && pointers.size === 2) {
+    const [p1, p2] = [...pointers.values()];
+    const d = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+    const mid = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+    camera.zoom = clamp((gesture.zoom * d) / Math.max(gesture.dist, 1), 4, 4000);
+    camera.updateProjectionMatrix();
+    const r = canvas.getBoundingClientRect();
+    camera.position.x = gesture.world.x - (mid.x - r.left - r.width / 2) / camera.zoom;
+    camera.position.y = gesture.world.y + (mid.y - r.top - r.height / 2) / camera.zoom;
+    viewDirty = true;
+    return;
+  }
+  if (gesture) {
+    const moved = Math.hypot(e.clientX - gesture.sx, e.clientY - gesture.sy);
+    if (gesture.type === 'press' && moved > 5) { gesture.type = 'pan'; gesture.moved = true; canvas.style.cursor = 'grabbing'; }
+    if (gesture.type === 'pan') {
+      camera.position.x = gesture.cx - (e.clientX - gesture.sx) / camera.zoom;
+      camera.position.y = gesture.cy + (e.clientY - gesture.sy) / camera.zoom;
+      viewDirty = true;
+      hideTooltip();
+      return;
+    }
+    if (gesture.type === 'drag') {
+      if (!gesture.moved && moved > 3) {
+        gesture.moved = true;
+        if (S.results) { S.results = null; renderResults(); }
+      }
+      if (gesture.moved) {
+        const n = getNode(gesture.id);
+        const s = snapPt(w);
+        if (n && (n.x !== s.x || n.y !== s.y)) { n.x = s.x; n.y = s.y; dirty = true; }
+        if (S.selected && S.selected.type === 'node' && S.selected.id === n.id) renderInspectorLive(n);
+      }
+      return;
+    }
+  }
+  const hit = pick(w);
+  const key = hit ? hit.type + hit.id : '';
+  const old = S.hover ? S.hover.type + S.hover.id : '';
+  if (key !== old) S.hover = hit;
+  dirty = true;
+  updateCursor(hit);
+  showTooltip(hit, e);
+});
+
+function endPointer(e) {
+  pointers.delete(e.pointerId);
+  if (!gesture) return;
+  if (gesture.type === 'pinch') { if (pointers.size === 0) gesture = null; return; }
+  const g = gesture;
+  gesture = null;
+  canvas.style.cursor = '';
+  if (g.type === 'press' && !g.moved && e.type === 'pointerup') handleClick(screenToWorld(e.clientX, e.clientY), g.hit);
+  if (g.type === 'drag') {
+    if (g.moved) { pushUndo(g.snap); modelChanged(); }
+    else { S.selected = { type: 'node', id: g.id }; renderInspector(); dirty = true; }
+  }
+  updateCursor(S.hover);
+}
+canvas.addEventListener('pointerup', endPointer);
+canvas.addEventListener('pointercancel', endPointer);
+canvas.addEventListener('pointerleave', () => { if (!gesture) { S.cursorIn = false; S.hover = null; hideTooltip(); dirty = true; } });
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const before = screenToWorld(e.clientX, e.clientY);
+  const factor = Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0016));
+  camera.zoom = clamp(camera.zoom * factor, 4, 4000);
+  camera.updateProjectionMatrix();
+  const after = screenToWorld(e.clientX, e.clientY);
+  camera.position.x += before.x - after.x;
+  camera.position.y += before.y - after.y;
+  viewDirty = true;
+}, { passive: false });
+
+function updateCursor(hit) {
+  if (S.mode === 'node') canvas.style.cursor = 'crosshair';
+  else if (hit && (S.mode === 'select' || S.mode === 'delete' || (hit.type === 'node' && S.mode !== 'node'))) canvas.style.cursor = 'pointer';
+  else canvas.style.cursor = S.mode === 'select' ? 'grab' : 'default';
+}
+
+function zoomBy(f) {
+  camera.zoom = clamp(camera.zoom * f, 4, 4000);
+  camera.updateProjectionMatrix();
+  viewDirty = true;
+}
+
+/* ---------------- tooltip ---------------- */
+const tip = $('#tooltip');
+function hideTooltip() { tip.classList.add('hidden'); }
+function showTooltip(hit, e) {
+  if (!hit) { hideTooltip(); return; }
+  const R = S.results;
+  let html = '';
+  if (hit.type === 'element') {
+    const el = getEl(hit.id);
+    if (!el) return hideTooltip();
+    const a = getNode(el.n1), b = getNode(el.n2);
+    const L = Math.hypot(b.x - a.x, b.y - a.y);
+    html = `<div class="text-slate-400">M${el.id} · N${el.n1} to N${el.n2} · L ${fmt(L, 3)} m</div>`;
+    if (R && R.elem[el.id]) {
+      const r = R.elem[el.id];
+      const state = Math.abs(r.force) < 1e-6 ? 'Zero force' : r.force > 0 ? 'Tension' : 'Compression';
+      html += `<div style="color:${rampCss(R.maxAbs ? r.stress / R.maxAbs : 0)}">N ${fmt(r.force, 2, true)} kN · ${state}</div><div>σ ${fmt(r.stress, 2, true)} MPa · ε ${fmtSci(r.strain)}</div>`;
+    } else html += `<div>E ${fmt(el.E, 1)} GPa · A ${fmt(el.A, 0)} mm²</div>`;
+  } else {
+    const n = getNode(hit.id);
+    if (!n) return hideTooltip();
+    html = `<div class="text-slate-400">N${n.id} · (${fmt(n.x, 3)}, ${fmt(n.y, 3)}) m</div>`;
+    if (R && R.disp[n.id]) {
+      const [ux, uy] = R.disp[n.id];
+      html += `<div>ux ${fmt(ux * 1e3, 3, true)} mm</div><div>uy ${fmt(uy * 1e3, 3, true)} mm</div>`;
+    } else if (n.fx || n.fy) html += `<div class="text-amber-300">F (${fmt(n.fx, 1)}, ${fmt(n.fy, 1)}) kN</div>`;
+  }
+  tip.innerHTML = html;
+  tip.classList.remove('hidden');
+  const r = container.getBoundingClientRect();
+  let x = e.clientX - r.left + 14, y = e.clientY - r.top + 14;
+  if (x + tip.offsetWidth > r.width - 8) x = e.clientX - r.left - tip.offsetWidth - 14;
+  if (y + tip.offsetHeight > r.height - 8) y = e.clientY - r.top - tip.offsetHeight - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+
+/* ------------------------------------------------------------------ *
+ *  Editing actions
+ * ------------------------------------------------------------------ */
+function currentLoad() {
+  const M = parseFloat($('#loadMag').value) || 0;
+  const a = ((parseFloat($('#loadAng').value) || 0) * Math.PI) / 180;
+  let fx = M * Math.cos(a), fy = M * Math.sin(a);
+  if (Math.abs(fx) < 1e-9 * Math.max(M, 1)) fx = 0;
+  if (Math.abs(fy) < 1e-9 * Math.max(M, 1)) fy = 0;
+  return { fx: +fx.toFixed(6), fy: +fy.toFixed(6) };
+}
+function deleteItem(hit) {
+  pushUndo();
+  if (hit.type === 'node') {
+    S.nodes = S.nodes.filter((n) => n.id !== hit.id);
+    S.elements = S.elements.filter((e) => e.n1 !== hit.id && e.n2 !== hit.id);
+  } else S.elements = S.elements.filter((e) => e.id !== hit.id);
+  S.hover = null;
+  modelChanged();
+}
+function handleClick(w, hit) {
+  switch (S.mode) {
+    case 'select':
+      S.selected = hit ? { type: hit.type, id: hit.id } : null;
+      renderInspector();
+      dirty = true;
+      break;
+    case 'node': {
+      if (hit && hit.type === 'node') { toast('A node already exists there.', 'warn'); break; }
+      const s = snapPt(w);
+      if (S.nodes.some((n) => Math.abs(n.x - s.x) < 1e-9 && Math.abs(n.y - s.y) < 1e-9)) { toast('A node already exists there.', 'warn'); break; }
+      pushUndo();
+      S.nodes.push({ id: S.nid++, x: s.x, y: s.y, support: 'none', fx: 0, fy: 0 });
+      modelChanged();
+      break;
+    }
+    case 'element': {
+      if (!hit || hit.type !== 'node') { S.pending = null; dirty = true; break; }
+      if (S.pending === null) { S.pending = hit.id; dirty = true; break; }
+      if (S.pending === hit.id) { S.pending = null; dirty = true; break; }
+      const a = S.pending, b = hit.id;
+      if (S.elements.some((e) => (e.n1 === a && e.n2 === b) || (e.n1 === b && e.n2 === a))) {
+        toast('Those nodes are already connected.', 'warn');
+      } else {
+        const E = parseFloat($('#secE').value), A = parseFloat($('#secA').value);
+        if (!(E > 0) || !(A > 0)) { toast('Set a positive E and A in the section panel first.', 'warn'); break; }
+        pushUndo();
+        S.elements.push({ id: S.eid++, n1: a, n2: b, E, A });
+        modelChanged();
+      }
+      S.pending = b;
+      dirty = true;
+      break;
+    }
+    case 'support': {
+      if (!hit || hit.type !== 'node') break;
+      const n = getNode(hit.id);
+      if (n.support === S.supportType) break;
+      pushUndo();
+      n.support = S.supportType;
+      modelChanged();
+      break;
+    }
+    case 'load': {
+      if (!hit || hit.type !== 'node') break;
+      const n = getNode(hit.id), L = currentLoad();
+      pushUndo();
+      n.fx = L.fx; n.fy = L.fy;
+      modelChanged();
+      break;
+    }
+    case 'delete':
+      if (hit) deleteItem(hit);
+      break;
+  }
+}
+
+function setMode(m) {
+  S.mode = m;
+  S.pending = null;
+  $$('#toolList .tool').forEach((b) => b.classList.toggle('active', b.dataset.mode === m));
+  $('#modeName').textContent = MODE_INFO[m][0];
+  $('#modeHint').textContent = MODE_INFO[m][1];
+  $('#optSupport').classList.toggle('ring-1', m === 'support');
+  $('#optLoad').classList.toggle('ring-1', m === 'load');
+  $('#optSection').classList.toggle('ring-1', m === 'element');
+  ['#optSupport', '#optLoad', '#optSection'].forEach((s) => $(s).classList.add('ring-cyan-400/25'));
+  updateCursor(S.hover);
+  dirty = true;
+}
+
+/* ------------------------------------------------------------------ *
+ *  Inspector panel
+ * ------------------------------------------------------------------ */
+const SUP_LABEL = { none: 'Free', pin: 'Pin (X + Y)', rollerY: 'Roller (restrain Y)', rollerX: 'Roller (restrain X)' };
+function renderInspectorLive(n) {
+  const x = $('#inspector [data-f="x"]'), y = $('#inspector [data-f="y"]');
+  if (x) x.value = +n.x.toFixed(4);
+  if (y) y.value = +n.y.toFixed(4);
+}
+function renderInspector() {
+  const box = $('#inspector');
+  const sel = S.selected;
+  if (!sel) {
+    box.innerHTML = `<div class="text-xs text-slate-500 leading-relaxed">Nothing selected. Switch to <span class="text-slate-300">Select</span> and click a node or member to edit coordinates, supports, loads and section properties.</div>
+      <div class="grid grid-cols-3 gap-2 mt-3">
+        <div class="stat"><div class="stat-k">Nodes</div><div class="stat-v">${S.nodes.length}</div></div>
+        <div class="stat"><div class="stat-k">Members</div><div class="stat-v">${S.elements.length}</div></div>
+        <div class="stat"><div class="stat-k">DOF</div><div class="stat-v">${S.nodes.length * 2}</div></div>
+      </div>`;
+    return;
+  }
+  const R = S.results;
+  if (sel.type === 'node') {
+    const n = getNode(sel.id);
+    if (!n) { S.selected = null; return renderInspector(); }
+    let res = '';
+    if (R && R.disp[n.id]) {
+      const [ux, uy] = R.disp[n.id];
+      const rc = R.reactions.find((r) => r.id === n.id);
+      res = `<div class="grid grid-cols-2 gap-2 mt-3">
+        <div class="stat"><div class="stat-k">ux</div><div class="stat-v">${fmt(ux * 1e3, 3, true)} mm</div></div>
+        <div class="stat"><div class="stat-k">uy</div><div class="stat-v">${fmt(uy * 1e3, 3, true)} mm</div></div>
+        ${rc ? `<div class="stat"><div class="stat-k">Rx</div><div class="stat-v text-emerald-300">${rc.fixedX ? fmt(rc.rx, 2, true) + ' kN' : 'free'}</div></div>
+                <div class="stat"><div class="stat-k">Ry</div><div class="stat-v text-emerald-300">${rc.fixedY ? fmt(rc.ry, 2, true) + ' kN' : 'free'}</div></div>` : ''}
+      </div>`;
+    }
+    box.innerHTML = `
+      <div class="flex items-center justify-between mb-3">
+        <span class="chip"><span class="w-2 h-2 rounded-full bg-slate-200"></span>Node N${n.id}</span>
+        <button data-act="del" class="btn btn-sm !text-red-300 hover:!bg-red-500/10">Delete</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="fld"><span>X (m)</span><input class="inp" data-f="x" type="number" step="0.1" value="${+n.x.toFixed(4)}"></label>
+        <label class="fld"><span>Y (m)</span><input class="inp" data-f="y" type="number" step="0.1" value="${+n.y.toFixed(4)}"></label>
+        <label class="fld col-span-2"><span>Support</span>
+          <select class="inp" data-f="support">${Object.keys(SUP_LABEL).map((k) => `<option value="${k}" ${k === n.support ? 'selected' : ''}>${SUP_LABEL[k]}</option>`).join('')}</select>
+        </label>
+        <label class="fld"><span>Fx (kN)</span><input class="inp" data-f="fx" type="number" step="1" value="${+n.fx.toFixed(4)}"></label>
+        <label class="fld"><span>Fy (kN)</span><input class="inp" data-f="fy" type="number" step="1" value="${+n.fy.toFixed(4)}"></label>
+      </div>${res}`;
+    box.querySelectorAll('[data-f]').forEach((inp) => inp.addEventListener('change', () => {
+      const f = inp.dataset.f;
+      const v = f === 'support' ? inp.value : parseFloat(inp.value);
+      if (f !== 'support' && !isFinite(v)) { renderInspector(); return; }
+      if ((f === 'x' || f === 'y') && S.nodes.some((o) => o !== n && Math.abs(o.x - (f === 'x' ? v : n.x)) < 1e-9 && Math.abs(o.y - (f === 'y' ? v : n.y)) < 1e-9)) {
+        toast('Another node already sits at that position.', 'warn'); renderInspector(); return;
+      }
+      pushUndo();
+      n[f] = v;
+      modelChanged();
+    }));
+  } else {
+    const el = getEl(sel.id);
+    if (!el) { S.selected = null; return renderInspector(); }
+    const a = getNode(el.n1), b = getNode(el.n2);
+    const L = Math.hypot(b.x - a.x, b.y - a.y);
+    const ang = (Math.atan2(b.y - a.y, b.x - a.x) * 180) / Math.PI;
+    let res = '';
+    if (R && R.elem[el.id]) {
+      const r = R.elem[el.id];
+      const state = Math.abs(r.force) < 1e-6 ? 'Zero force' : r.force > 0 ? 'Tension' : 'Compression';
+      const col = rampCss(R.maxAbs ? r.stress / R.maxAbs : 0);
+      res = `<div class="mt-3 rounded-lg border border-white/5 p-2.5" style="background:linear-gradient(90deg, ${col}22, transparent)">
+          <div class="flex items-center justify-between"><span class="text-xs font-medium" style="color:${col}">${state}</span><span class="text-[10px] text-slate-500">${R.maxAbs ? fmt((Math.abs(r.stress) / R.maxAbs) * 100, 0) : 0}% of peak</span></div>
+          <div class="grid grid-cols-3 gap-2 mt-2">
+            <div><div class="stat-k">N (kN)</div><div class="stat-v">${fmt(r.force, 2, true)}</div></div>
+            <div><div class="stat-k">σ (MPa)</div><div class="stat-v">${fmt(r.stress, 2, true)}</div></div>
+            <div><div class="stat-k">ε</div><div class="stat-v">${fmtSci(r.strain)}</div></div>
+          </div></div>`;
+    }
+    box.innerHTML = `
+      <div class="flex items-center justify-between mb-3">
+        <span class="chip"><span class="w-3 h-0.5 bg-slate-300"></span>Member M${el.id}</span>
+        <button data-act="del" class="btn btn-sm !text-red-300 hover:!bg-red-500/10">Delete</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mb-2">
+        <div class="stat"><div class="stat-k">Nodes</div><div class="stat-v">${el.n1} → ${el.n2}</div></div>
+        <div class="stat"><div class="stat-k">L (m)</div><div class="stat-v">${fmt(L, 3)}</div></div>
+        <div class="stat"><div class="stat-k">θ (°)</div><div class="stat-v">${fmt(ang, 1)}</div></div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <label class="fld"><span>E (GPa)</span><input class="inp" data-f="E" type="number" step="1" min="0" value="${el.E}"></label>
+        <label class="fld"><span>A (mm²)</span><input class="inp" data-f="A" type="number" step="50" min="0" value="${el.A}"></label>
+      </div>
+      <div class="text-[11px] text-slate-500 mt-2 font-mono">Axial stiffness EA/L = ${fmt((el.E * 1e9 * el.A * 1e-6) / L / 1e6, 2)} kN/mm</div>${res}`;
+    box.querySelectorAll('[data-f]').forEach((inp) => inp.addEventListener('change', () => {
+      const v = parseFloat(inp.value);
+      if (!(v > 0)) { toast('E and A must be positive.', 'warn'); renderInspector(); return; }
+      pushUndo();
+      el[inp.dataset.f] = v;
+      modelChanged();
+    }));
+  }
+  box.querySelector('[data-act="del"]').addEventListener('click', () => { deleteItem(S.selected); });
+}
+
+/* ------------------------------------------------------------------ *
+ *  Results panel
+ * ------------------------------------------------------------------ */
+function renderResults() {
+  const box = $('#results');
+  const R = S.results;
+  $('#legend').classList.toggle('hidden', !R);
+  $('#deformPanel').classList.toggle('hidden', !R);
+  if (!R) {
+    $('#resBadge').innerHTML = '';
+    box.innerHTML = `<div class="flex flex-col items-center text-center py-6">
+        <div class="w-10 h-10 rounded-full bg-white/5 grid place-items-center mb-3"><svg viewBox="0 0 24 24" class="w-5 h-5 text-slate-500" fill="currentColor"><path d="M7 4.5v15l12.5-7.5z"/></svg></div>
+        <div class="text-sm text-slate-300">No results yet</div>
+        <div class="text-xs text-slate-500 mt-1 max-w-[16rem]">Build or load a model, then press Solve. The stiffness solver runs in a background worker.</div>
+      </div>`;
+    return;
+  }
+  $('#lgMin').textContent = fmt(-R.maxAbs, 1);
+  $('#lgMax').textContent = fmt(R.maxAbs, 1, true);
+  updateExagLabel();
+
+  const m = S.elements.length, j = S.nodes.length, r = R.nRestrained;
+  const deg = m + r - 2 * j;
+  const det = deg === 0 ? 'Statically determinate' : deg > 0 ? `Indeterminate, degree ${deg}` : 'Stable via geometry';
+  const resid = Math.hypot(R.residual[0], R.residual[1]);
+  const okEq = resid < 1e-6 * Math.max(1, ...S.nodes.map((n) => Math.hypot(n.fx, n.fy)));
+  $('#resBadge').innerHTML = `<span class="normal-case tracking-normal font-mono text-[10px] text-emerald-300 bg-emerald-500/10 border border-emerald-400/20 rounded px-1.5 py-0.5">${fmt(R.time, 2)} ms</span>`;
+
+  const rows = S.elements.map((e) => {
+    const x = R.elem[e.id];
+    const t = R.maxAbs ? x.stress / R.maxAbs : 0;
+    const sel = S.selected && S.selected.type === 'element' && S.selected.id === e.id;
+    return `<tr data-el="${e.id}" class="cursor-pointer hover:bg-white/5 ${sel ? 'bg-cyan-500/10' : ''}">
+      <td><span class="inline-block w-2 h-2 rounded-full mr-1.5 align-middle" style="background:${rampCss(t)}"></span>M${e.id}</td>
+      <td class="text-slate-500">${e.n1}→${e.n2}</td>
+      <td class="text-right">${fmt(x.force, 2, true)}</td>
+      <td class="text-right">${fmt(x.stress, 1, true)}</td></tr>`;
+  }).join('');
+  const reacRows = R.reactions.map((rc) => `<tr><td>N${rc.id}</td><td class="text-right">${rc.fixedX ? fmt(rc.rx, 2, true) : '<span class="text-slate-600">free</span>'}</td><td class="text-right">${rc.fixedY ? fmt(rc.ry, 2, true) : '<span class="text-slate-600">free</span>'}</td></tr>`).join('');
+
+  box.innerHTML = `
+    <div class="grid grid-cols-2 gap-2">
+      <div class="stat col-span-2"><div class="stat-k">Max displacement</div><div class="stat-v text-cyan-300 text-base">${fmt(R.maxDisp * 1e3, 3)} mm <span class="text-xs text-slate-500">at N${R.maxDispNode ?? '-'}</span></div></div>
+      <div class="stat"><div class="stat-k">Peak tension</div><div class="stat-v" style="color:rgb(${C_RED})">${fmt(R.maxT, 1, true)} MPa</div><div class="text-[10px] text-slate-500 font-mono">${R.maxTid ? 'M' + R.maxTid : 'none'}</div></div>
+      <div class="stat"><div class="stat-k">Peak compression</div><div class="stat-v" style="color:rgb(${C_BLUE.map((c, i) => Math.min(255, c + 60)).join(',')})">${fmt(R.maxC, 1)} MPa</div><div class="text-[10px] text-slate-500 font-mono">${R.maxCid ? 'M' + R.maxCid : 'none'}</div></div>
+    </div>
+    <div class="mt-2 flex flex-wrap gap-1.5">
+      <span class="chip">${R.ndof} DOF · ${R.nfree} free</span>
+      <span class="chip">${det}</span>
+      <span class="chip ${okEq ? '!text-emerald-300 !border-emerald-400/20' : '!text-amber-300'}">ΣF residual ${fmtSci(resid)} kN</span>
+    </div>
+
+    <div class="mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 mb-1.5">Support reactions (kN)</div>
+    <div class="rounded-lg border border-white/5 overflow-hidden">
+      <table class="tbl w-full text-[11px]"><thead><tr><th>Node</th><th class="!text-right">Rx</th><th class="!text-right">Ry</th></tr></thead><tbody>${reacRows}</tbody></table>
+    </div>
+
+    <div class="mt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500 mb-1.5">Member forces</div>
+    <div class="rounded-lg border border-white/5 overflow-auto max-h-72">
+      <table class="tbl w-full text-[11px]"><thead><tr><th>ID</th><th>Nodes</th><th class="!text-right">N (kN)</th><th class="!text-right">σ (MPa)</th></tr></thead><tbody>${rows}</tbody></table>
+    </div>
+    <div class="text-[10px] text-slate-600 mt-2">Positive values are tension. Click a row to inspect the member.</div>`;
+  box.querySelectorAll('tr[data-el]').forEach((tr) => tr.addEventListener('click', () => {
+    S.selected = { type: 'element', id: +tr.dataset.el };
+    renderInspector(); renderResults(); dirty = true;
+  }));
+}
+function updateExagLabel() {
+  $('#exagVal').textContent = '×' + (S.results ? fmtSci(S.autoScale * S.exagMult).replace(/\.00(?=e|$)/, '') : '1');
+}
+
+/* ------------------------------------------------------------------ *
+ *  Model helpers: bbox, fit, presets, import, export
+ * ------------------------------------------------------------------ */
+function bbox() {
+  if (!S.nodes.length) return { x0: 0, y0: 0, x1: 0, y1: 0, w: 0, h: 0 };
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const n of S.nodes) { x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y); x1 = Math.max(x1, n.x); y1 = Math.max(y1, n.y); }
+  return { x0, y0, x1, y1, w: x1 - x0, h: y1 - y0 };
+}
+function fitView() {
+  const w = container.clientWidth, h = container.clientHeight;
+  if (!S.nodes.length) { camera.position.set(3, 1.5, 10); camera.zoom = 60; }
+  else {
+    const b = bbox();
+    const padX = Math.min(170, w * 0.22), padY = Math.min(170, h * 0.25);
+    camera.zoom = clamp(Math.min((w - 2 * padX) / Math.max(b.w, 0.5), (h - 2 * padY) / Math.max(b.h, 0.5)), 4, 4000);
+    camera.position.set((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2 - 10 / camera.zoom, 10);
+  }
+  camera.updateProjectionMatrix();
+  viewDirty = true;
+}
+
+const PRESETS = {
+  pratt() {
+    const nodes = [], els = [], bot = [], top = [];
+    const Pn = 6, w = 2, h = 2;
+    let id = 1;
+    for (let i = 0; i <= Pn; i++) { bot[i] = id; nodes.push({ id: id++, x: i * w, y: 0, support: i === 0 ? 'pin' : i === Pn ? 'rollerY' : 'none', fx: 0, fy: i > 0 && i < Pn ? -20 : 0 }); }
+    for (let i = 1; i < Pn; i++) { top[i] = id; nodes.push({ id: id++, x: i * w, y: h, support: 'none', fx: 0, fy: 0 }); }
+    const add = (a, b) => els.push({ id: els.length + 1, n1: a, n2: b, E: 200, A: 1500 });
+    for (let i = 0; i < Pn; i++) add(bot[i], bot[i + 1]);
+    for (let i = 1; i < Pn - 1; i++) add(top[i], top[i + 1]);
+    add(bot[0], top[1]); add(top[Pn - 1], bot[Pn]);
+    for (let i = 1; i < Pn; i++) add(bot[i], top[i]);
+    const mid = Pn / 2;
+    for (let i = 1; i < mid; i++) add(top[i], bot[i + 1]);
+    for (let i = mid + 1; i < Pn; i++) add(top[i], bot[i - 1]);
+    return { nodes, elements: els };
+  },
+  cantilever() {
+    const nodes = [], els = [], b = [], t = [];
+    let id = 1;
+    for (let i = 0; i <= 4; i++) { b[i] = id; nodes.push({ id: id++, x: i * 1.5, y: 0, support: i === 0 ? 'pin' : 'none', fx: 0, fy: i === 4 ? -15 : 0 }); }
+    for (let i = 0; i <= 3; i++) { t[i] = id; nodes.push({ id: id++, x: i * 1.5, y: 1.5 - 0.25 * i, support: i === 0 ? 'pin' : 'none', fx: 0, fy: 0 }); }
+    const add = (p, q) => els.push({ id: els.length + 1, n1: p, n2: q, E: 68.9, A: 900 });
+    for (let i = 0; i < 4; i++) add(b[i], b[i + 1]);
+    for (let i = 0; i < 3; i++) add(t[i], t[i + 1]);
+    for (let i = 1; i <= 3; i++) add(b[i], t[i]);
+    for (let i = 0; i < 3; i++) add(t[i], b[i + 1]);
+    add(t[3], b[4]);
+    return { nodes, elements: els };
+  },
+  triangle() {
+    return {
+      nodes: [
+        { id: 1, x: 0, y: 0, support: 'pin', fx: 0, fy: 0 },
+        { id: 2, x: 6, y: 0, support: 'rollerY', fx: 0, fy: 0 },
+        { id: 3, x: 3, y: 3, support: 'none', fx: 10, fy: -40 }
+      ],
+      elements: [
+        { id: 1, n1: 1, n2: 2, E: 200, A: 1200 },
+        { id: 2, n1: 1, n2: 3, E: 200, A: 1200 },
+        { id: 3, n1: 2, n2: 3, E: 200, A: 1200 }
+      ]
+    };
+  },
+  braced() {
+    return {
+      nodes: [
+        { id: 1, x: 0, y: 0, support: 'pin', fx: 0, fy: 0 },
+        { id: 2, x: 4, y: 0, support: 'pin', fx: 0, fy: 0 },
+        { id: 3, x: 4, y: 3, support: 'none', fx: 0, fy: -10 },
+        { id: 4, x: 0, y: 3, support: 'none', fx: 25, fy: -10 }
+      ],
+      elements: [
+        { id: 1, n1: 1, n2: 2, E: 200, A: 1000 },
+        { id: 2, n1: 2, n2: 3, E: 200, A: 1000 },
+        { id: 3, n1: 3, n2: 4, E: 200, A: 1000 },
+        { id: 4, n1: 4, n2: 1, E: 200, A: 1000 },
+        { id: 5, n1: 1, n2: 3, E: 200, A: 600 },
+        { id: 6, n1: 2, n2: 4, E: 200, A: 600 }
+      ]
+    };
+  }
+};
+
+function loadModel(model, record = true) {
+  if (record) pushUndo();
+  S.nodes = model.nodes.map((n) => ({ id: n.id, x: n.x, y: n.y, support: n.support || 'none', fx: n.fx || 0, fy: n.fy || 0 }));
+  S.elements = model.elements.map((e) => ({ id: e.id, n1: e.n1, n2: e.n2, E: e.E, A: e.A }));
+  S.nid = S.nodes.reduce((m, n) => Math.max(m, n.id), 0) + 1;
+  S.eid = S.elements.reduce((m, e) => Math.max(m, e.id), 0) + 1;
+  S.selected = null; S.pending = null; S.hover = null;
+  modelChanged();
+  fitView();
+}
+
+function validateModel(d) {
+  if (!d || !Array.isArray(d.nodes) || !Array.isArray(d.elements)) throw new Error('File must contain "nodes" and "elements" arrays.');
+  const ids = new Set();
+  for (const n of d.nodes) {
+    if (!Number.isFinite(n.id) || !Number.isFinite(n.x) || !Number.isFinite(n.y)) throw new Error('Every node needs numeric id, x and y.');
+    if (ids.has(n.id)) throw new Error('Duplicate node id ' + n.id + '.');
+    if (n.support && !['none', 'pin', 'rollerX', 'rollerY'].includes(n.support)) throw new Error('Unknown support type "' + n.support + '".');
+    ids.add(n.id);
+  }
+  for (const e of d.elements) {
+    if (!ids.has(e.n1) || !ids.has(e.n2)) throw new Error('Member ' + e.id + ' references a missing node.');
+    if (!(e.E > 0) || !(e.A > 0)) throw new Error('Member ' + e.id + ' needs positive E and A.');
+  }
+  return d;
+}
+function exportModel() {
+  const data = {
+    format: 'trusslab-2d', version: 1,
+    units: { length: 'm', force: 'kN', E: 'GPa', A: 'mm2' },
+    nodes: S.nodes, elements: S.elements
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'truss-model.json';
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast('Model exported.', 'ok');
+}
+
+/* ------------------------------------------------------------------ *
+ *  Toasts, counts
+ * ------------------------------------------------------------------ */
+function toast(msg, kind = 'info') {
+  const colors = { error: 'border-red-400/30 text-red-200', warn: 'border-amber-400/30 text-amber-200', ok: 'border-emerald-400/30 text-emerald-200', info: 'border-white/10 text-slate-200' };
+  const el = document.createElement('div');
+  el.className = `toast-in pointer-events-auto max-w-md text-xs leading-relaxed px-3.5 py-2.5 rounded-lg bg-slate-900/95 backdrop-blur border shadow-2xl ${colors[kind] || colors.info}`;
+  el.textContent = msg;
+  $('#toasts').appendChild(el);
+  setTimeout(() => { el.style.transition = 'opacity .3s'; el.style.opacity = '0'; setTimeout(() => el.remove(), 320); }, kind === 'error' ? 6000 : 2800);
+}
+function updateCounts() {
+  $('#stCount').textContent = `${S.nodes.length} nodes · ${S.elements.length} members · ${S.nodes.length * 2} DOF`;
+}
+
+/* ------------------------------------------------------------------ *
+ *  UI wiring
+ * ------------------------------------------------------------------ */
+$$('#toolList .tool').forEach((b) => b.addEventListener('click', () => setMode(b.dataset.mode)));
+
+function setSupportType(t) {
+  S.supportType = t;
+  $$('#supportSeg .seg').forEach((b) => b.classList.toggle('on', b.dataset.sup === t));
+}
+$$('#supportSeg .seg').forEach((b) => b.addEventListener('click', () => { setSupportType(b.dataset.sup); if (S.mode !== 'support') setMode('support'); }));
+
+function updateLoadComp() {
+  const L = currentLoad();
+  $('#loadComp').textContent = `Fx ${fmt(L.fx, 2)} kN · Fy ${fmt(L.fy, 2)} kN`;
+  const ang = parseFloat($('#loadAng').value);
+  $$('#dirBtns .seg').forEach((b) => b.classList.toggle('on', +b.dataset.ang === ang));
+}
+$('#loadMag').addEventListener('input', updateLoadComp);
+$('#loadAng').addEventListener('input', updateLoadComp);
+$$('#dirBtns .seg').forEach((b) => b.addEventListener('click', () => { $('#loadAng').value = b.dataset.ang; updateLoadComp(); if (S.mode !== 'load') setMode('load'); }));
+
+$('#matSel').addEventListener('change', (e) => { const v = MATERIALS[e.target.value]; if (v) $('#secE').value = v; });
+$('#secE').addEventListener('input', (e) => {
+  const v = parseFloat(e.target.value);
+  const match = Object.keys(MATERIALS).find((k) => MATERIALS[k] === v);
+  $('#matSel').value = match || 'custom';
+});
+$('#btnApplyAll').addEventListener('click', () => {
+  const E = parseFloat($('#secE').value), A = parseFloat($('#secA').value);
+  if (!(E > 0) || !(A > 0)) { toast('E and A must be positive.', 'warn'); return; }
+  if (!S.elements.length) { toast('There are no members yet.', 'warn'); return; }
+  pushUndo();
+  S.elements.forEach((e) => { e.E = E; e.A = A; });
+  modelChanged();
+  toast(`Section applied to ${S.elements.length} members.`, 'ok');
+});
+
+$('#snapChk').addEventListener('change', (e) => { S.snap = e.target.checked; dirty = true; });
+$('#gridSel').addEventListener('change', (e) => { S.grid = parseFloat(e.target.value); gridKey = ''; viewDirty = true; });
+$('#lblChk').addEventListener('change', (e) => { S.showLabels = e.target.checked; dirty = true; });
+
+$('#exag').addEventListener('input', (e) => { S.exagMult = Math.pow(10, (e.target.value - 50) / 50); updateExagLabel(); dirty = true; });
+$('#ghostChk').addEventListener('change', (e) => { S.showGhost = e.target.checked; dirty = true; });
+$('#valChk').addEventListener('change', (e) => { S.showValues = e.target.checked; dirty = true; });
+$('#loopChk').addEventListener('change', (e) => { S.loop = e.target.checked; S.animStart = performance.now(); dirty = true; });
+$('#btnReplay').addEventListener('click', () => { S.animStart = performance.now(); dirty = true; });
+
+$('#zIn').addEventListener('click', () => zoomBy(1.25));
+$('#zOut').addEventListener('click', () => zoomBy(0.8));
+$('#zFit').addEventListener('click', fitView);
+
+$('#btnSolve').addEventListener('click', solve);
+$('#btnUndo').addEventListener('click', undo);
+$('#btnRedo').addEventListener('click', redo);
+$('#btnClear').addEventListener('click', () => {
+  if (!S.nodes.length) return;
+  pushUndo();
+  S.nodes = []; S.elements = []; S.nid = 1; S.eid = 1; S.selected = null; S.pending = null;
+  modelChanged();
+  toast('Model cleared. Ctrl+Z restores it.', 'info');
+});
+$('#btnExport').addEventListener('click', exportModel);
+$('#btnImport').addEventListener('click', () => $('#fileInput').click());
+$('#fileInput').addEventListener('change', async (e) => {
+  const f = e.target.files[0];
+  e.target.value = '';
+  if (!f) return;
+  try {
+    const d = validateModel(JSON.parse(await f.text()));
+    loadModel(d);
+    toast(`Imported ${d.nodes.length} nodes and ${d.elements.length} members.`, 'ok');
+  } catch (err) { toast('Import failed: ' + err.message, 'error'); }
+});
+$('#presetSel').addEventListener('change', (e) => {
+  const k = e.target.value;
+  e.target.value = '';
+  if (!PRESETS[k]) return;
+  loadModel(PRESETS[k]());
+  solve();
+});
+
+window.addEventListener('keydown', (e) => {
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+  const ctrl = e.ctrlKey || e.metaKey;
+  if (ctrl && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if (ctrl && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
+  if (ctrl) return;
+  const modes = ['select', 'node', 'element', 'support', 'load', 'delete'];
+  if (e.key >= '1' && e.key <= '6') { setMode(modes[+e.key - 1]); return; }
+  if (e.key === 'Escape') { S.pending = null; S.selected = null; renderInspector(); dirty = true; return; }
+  if (e.key === 'Enter') { e.preventDefault(); solve(); return; }
+  if (e.key === 'f' || e.key === 'F') { fitView(); return; }
+  if ((e.key === 'Delete' || e.key === 'Backspace') && S.selected) { e.preventDefault(); deleteItem(S.selected); }
+});
+
+/* ------------------------------------------------------------------ *
+ *  Boot
+ * ------------------------------------------------------------------ */
+resize();
+setSupportType('pin');
+updateLoadComp();
+setMode('select');
+updateUndoButtons();
+renderResults();
+loadModel(PRESETS.pratt(), false);
+requestAnimationFrame(frame);
+setTimeout(solve, 350);
+})();
+</script>
+</body>
+</html>
